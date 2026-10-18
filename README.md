@@ -35,7 +35,8 @@ slot opens that creature on the creature page.
 Open `pages/visualizer.html` (next to the other two, or press **Visualizer** on the pond page). It
 opens the pond you were working on and plays it live: each creature is a scope of its own voice,
 placed left to right as you hear it, sized by how loud its call is, and gone when it's silent.
-Answers pass a ball along a white line; copies draw a dotted one. **Pond length** or **Endless**
+Answers draw a white line, copies a dotted one. **Ring**, **Line** or **X/Y** picks how the
+scopes draw (X/Y plots each voice against itself a quarter period later, so tones draw loops). **Pond length** or **Endless**
 (six hours) picks how long it plays. **Load…** (or drop a file) opens a pond file or a krill
 WAV; a WAV plays as itself, with the pond running silently alongside for the pictures, and the
 player's own controls can seek.

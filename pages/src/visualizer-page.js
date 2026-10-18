@@ -3,7 +3,8 @@
  *
  * A circle with each creature as a scope of its own voice. Left to right is the pan you hear;
  * up and down is a seeded height that drifts with the eras; size is the call's loudness; a scope
- * fades with its own level, so a silent creature isn't drawn. Answers pass a ball along a solid
+ * fades with its own level, so a silent creature isn't drawn. Scope styles: Ring, Line, or X/Y
+ * (the voice against itself a quarter of its pitch period later). Answers draw a solid
  * white line, copies draw a dotted one (src/scene.js).
  *
  * Two ways to play:
@@ -16,7 +17,8 @@
   'use strict';
   const K = window.Krill, PD = K.pond, CD = K.conductor, SC = K.scene, kit = K.kit, el = kit.el;
   const POND_STORE = 'krill.pond.v1';
-  const SR = 48000, SCOPE = 512, ENDLESS_H = 6;
+  const SR = 48000, SCOPE = 1024, SHOW = 512, ENDLESS_H = 6;
+  const STYLE_STORE = 'krill.vis.scope', STYLES = [['ring', 'Ring'], ['line', 'Line'], ['xy', 'X/Y']];
   const HEX = ['#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc'];
 
   const statusEl = document.getElementById('status');
@@ -155,7 +157,7 @@
     const f = scene.at(t), P = w => [cx + w.x * R, cy - w.y * R];
     frame = f;
     g.globalCompositeOperation = 'lighter';
-    // links: answers solid with a ball, copies dotted
+    // links: answers solid, copies dotted
     for (const l of f.links) {
       const a = f.where[l.from], b = f.where[l.to]; if (!a || !b) continue;
       const [x0, y0] = P(a), [x1, y1] = P(b);
@@ -165,19 +167,13 @@
       g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
       g.setLineDash([]);                       // small dots at the ends, so a line never ends in empty space
       for (const [px, py, sl] of [[x0, y0, l.from], [x1, y1, l.to]]) { g.fillStyle = HEX[sl]; g.beginPath(); g.arc(px, py, 2.4 * d, 0, Math.PI * 2); g.fill(); }
-      if (l.ball != null) {
-        const p = l.ball, bx = x0 + (x1 - x0) * p, by = y0 + (y1 - y0) * p;
-        g.globalAlpha = 1; g.fillStyle = '#fff';
-        g.beginPath(); g.arc(bx, by, 3.6 * d, 0, Math.PI * 2); g.fill();
-        g.globalAlpha = 0.25; g.beginPath(); g.arc(bx, by, 8 * d, 0, Math.PI * 2); g.fill();
-      }
     }
     g.setLineDash([]);
-    // creatures: a ring scope of the creature's own voice, as big as the call is loud, as bright
-    // as its level; silent creatures don't show
+    // creatures: a scope of the creature's own voice, as big as the call is loud, as bright as
+    // its level; silent creatures don't show
     for (const w of f.where) {
       if (!w) continue;
-      const s = scopes[w.slot];
+      const all = scopes[w.slot], s = all && all.subarray(all.length - SHOW);
       let rms = 0;
       if (s) { for (let i = 0; i < s.length; i++) rms += s[i] * s[i]; rms = Math.sqrt(rms / s.length); }
       const db = rms > 0 ? 20 * Math.log10(rms) : -120;
@@ -186,26 +182,75 @@
       levels[w.slot] = lv;
       const alpha = Math.max(0, Math.min(1, (lv + 52) / 26));
       if (alpha < 0.01 || !s) continue;
-      const [x, y] = P(w), r0 = R * 0.085 * w.size, N = s.length;
-      // start at an upward zero crossing so the shape holds still
-      let k0 = 0; for (let i = 1; i < N / 2; i++) if (s[i - 1] < 0 && s[i] >= 0) { k0 = i; break; }
-      const gain = rms > 0 ? Math.min(14, 0.32 / Math.max(rms, 0.01)) : 0, M = N - k0;
+      const [x, y] = P(w), r0 = R * 0.085 * w.size;
+      const gain = rms > 0 ? Math.min(14, 0.32 / Math.max(rms, 0.01)) : 0;
       g.strokeStyle = HEX[w.slot];
-      for (const [lw, a] of [[5 * d, 0.18], [1.6 * d, 1]]) {
-        g.globalAlpha = alpha * a; g.lineWidth = lw; g.beginPath();
-        for (let i = 0; i <= M; i++) {
-          const v = s[k0 + (i % M)] * gain, ang = (i / M) * Math.PI * 2 - Math.PI / 2;
-          const rr = r0 * (1 + Math.max(-0.85, Math.min(1.4, v)));
-          const px = x + Math.cos(ang) * rr, py = y + Math.sin(ang) * rr;
-          if (i) g.lineTo(px, py); else g.moveTo(px, py);
-        }
-        g.stroke();
-      }
+      const path = style === 'xy' ? xyPath(g, all, x, y, r0, gain, w.slot) : style === 'line' ? linePath(g, s, x, y, r0, gain) : ringPath(g, s, x, y, r0, gain);
+      for (const [lw, a] of [[5 * d, 0.18], [1.6 * d, 1]]) { g.globalAlpha = alpha * a; g.lineWidth = lw; g.lineJoin = 'round'; path(); g.stroke(); }
       g.globalAlpha = alpha * 0.55; g.fillStyle = HEX[w.slot];
       g.fillText(w.name, x, y + r0 * 2.5 + 8 * d);
     }
     g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
   }
+  // ---------- scope styles ----------
+  // each returns a function that traces the path (drawn twice: glow, then line)
+  let style = 'ring';
+  try { const v = localStorage.getItem(STYLE_STORE); if (STYLES.some(([k]) => k === v)) style = v; } catch (e) { /* storage unavailable */ }
+  const upZero = (s, N) => { for (let i = 1; i < N / 2; i++) if (s[i - 1] < 0 && s[i] >= 0) return i; return 0; };   // holds the shape still
+  function ringPath(g, s, x, y, r0, gain) {
+    const k0 = upZero(s, s.length), M = s.length - k0;
+    return () => {
+      g.beginPath();
+      for (let i = 0; i <= M; i++) {
+        const v = s[k0 + (i % M)] * gain, ang = (i / M) * Math.PI * 2 - Math.PI / 2;
+        const rr = r0 * (1 + Math.max(-0.85, Math.min(1.4, v)));
+        const px = x + Math.cos(ang) * rr, py = y + Math.sin(ang) * rr;
+        if (i) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+    };
+  }
+  function linePath(g, s, x, y, r0, gain) {
+    const k0 = upZero(s, s.length), M = s.length - k0, half = r0 * 2.2;
+    return () => {
+      g.beginPath();
+      for (let i = 0; i < M; i++) {
+        const px = x - half + 2 * half * i / (M - 1), py = y - Math.max(-1.6, Math.min(1.6, s[k0 + i] * gain)) * r0;
+        if (i) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+    };
+  }
+  // X/Y: the voice against itself a quarter of its pitch period later, so a pure tone draws a
+  // circle and a richer one draws loops; no clear pitch (clicks, noise) uses a short delay
+  const taus = {};
+  function period(s) {
+    const n = s.length >> 1;                               // every other sample is plenty
+    let best = 0, bestLag = 0, e0 = 0;
+    for (let i = 0; i < n; i++) e0 += s[2 * i] * s[2 * i];
+    if (e0 <= 0) return 0;
+    let fell = false;
+    for (let lag = 4; lag < 200; lag++) {                  // 8 … 400 samples: 120 Hz … 6 kHz
+      let r = 0; for (let i = 0; i + lag < n; i++) r += s[2 * i] * s[2 * (i + lag)];
+      r /= e0;
+      if (!fell) { if (r < 0.2) fell = true; continue; }    // past the first dip
+      if (r > best) { best = r; bestLag = lag; }
+    }
+    return best > 0.35 ? bestLag * 2 : 0;
+  }
+  function xyPath(g, s, x, y, r0, gain, slot) {
+    const p = period(s), want = p ? p / 4 : 6;
+    const tau = Math.max(2, Math.round(taus[slot] = taus[slot] ? taus[slot] + (want - taus[slot]) * 0.35 : want));
+    const N = s.length, k = 1.4 * gain, A = 2.2 * r0;    // soft limit: loud peaks round off, never flatten
+    return () => {
+      g.beginPath();
+      for (let i = tau; i < N; i++) {
+        const px = x + Math.tanh(s[i] * k) * A, py = y - Math.tanh(s[i - tau] * k) * A;
+        if (i > tau) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+    };
+  }
+  kit.Seg(document.getElementById('scopeBox'), { options: STYLES, get: () => style,
+    set: v => { style = v; try { localStorage.setItem(STYLE_STORE, v); } catch (e) { /* ignore */ } drawFrame(now()); } });
+
   let frame = null;
   function loop() {
     if (!playing) { drawFrame(now()); return; }
@@ -264,5 +309,5 @@
   const p0 = stored();
   setPond(p0 || window.KRILL_POND_EXAMPLE, p0 ? 'The pond page\'s pond' : 'The example pond');
   window.krillVis = { get pond() { return pond; }, get scene() { return scene; }, get frame() { return frame; }, get scopes() { return scopes; }, get levels() { return levels; },
-    get mode() { return mode; }, get scopeFrame() { return scopeFrame; }, get playing() { return playing; }, now, load: setPond };
+    get mode() { return mode; }, get style() { return style; }, period, get scopeFrame() { return scopeFrame; }, get playing() { return playing; }, now, load: setPond };
 })();

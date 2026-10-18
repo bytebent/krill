@@ -281,6 +281,9 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   const dark = await vp.evaluate(() => { const c = document.getElementById('vis'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 90) n++; return n / (d.length / 4); });
   ok('the circle is drawn', dark > 0.001, (dark * 100).toFixed(2) + '% lit');
   if (SHOTS) await vp.screenshot({ path: path.join(SHOTS, '10-visualizer.png') });
+  await vp.click('#scopeBox >> text=X/Y');
+  const xy = await vp.evaluate(() => { const s = new Float32Array(1024); for (let i = 0; i < 1024; i++) s[i] = Math.sin(2 * Math.PI * 1000 * i / 48000); return [window.krillVis.style, window.krillVis.period(s), localStorage.getItem('krill.vis.scope')]; });
+  ok('scope styles switch (X/Y finds the pitch period) and are remembered', xy[0] === 'xy' && xy[1] === 48 && xy[2] === 'xy', 'a 1 kHz tone: period ' + xy[1] + ' samples');
   await vp.click('#play');
   const paused = await vp.evaluate(async () => { const a = window.krillVis.now(); await new Promise(r => setTimeout(r, 700)); return [a, window.krillVis.now(), window.krillVis.playing]; });
   ok('Pause stops time', !paused[2] && Math.abs(paused[1] - paused[0]) < 0.01);

@@ -49,20 +49,20 @@ test('scene: size follows the call\'s loudness; loudness never moves a creature'
   for (const t of [30, 300]) { const a = same.sc.at(t).where[0], b = other.sc.at(t).where[0]; assert.ok(a.x === b.x && a.y === b.y); }
 });
 
-test('scene: an answer passes a ball from caller to answerer; copies draw dotted lines', () => {
+test('scene: an answer\'s line appears as the answer starts and fades; copies draw dotted lines', () => {
   const { s, sc } = setup();
   const ans = s.calls.map((c, k) => [c, k]).find(([c]) => c.of != null && c.kind !== 'copy' && s.calls[c.of].slot !== c.slot);
-  const [c, k] = ans, src = s.calls[c.of], t0 = Math.min(src.end, c.t - 0.35);
+  const [c, k] = ans, src = s.calls[c.of];
   const at = t => sc.at(t).links.find(l => l.call === k);
-  assert.ok(!at(t0 - 0.05), 'not before the caller ends');
-  const mid = at((t0 + c.t) / 2);
-  assert.ok(mid && !mid.dotted && mid.from === src.slot && mid.to === c.slot && Math.abs(mid.ball - 0.5) < 1e-6);
-  const after = at(c.t + 0.5);
-  assert.ok(after && after.ball === null && after.alpha < 1 && after.alpha > 0, 'the line fades after the answer starts');
+  assert.ok(!at(c.t - 0.01), 'nothing before the answer starts');
+  const on = at(c.t);
+  assert.ok(on && !on.dotted && on.from === src.slot && on.to === c.slot && on.alpha === 1 && !('ball' in on));
+  const after = at(c.t + 0.7);
+  assert.ok(after && after.alpha < 1 && after.alpha > 0, 'the line fades');
   assert.ok(!at(c.t + 5));
-  let dotted = 0, balls = 0;
-  for (let t = 0; t < 600; t += 0.25) for (const l of sc.at(t).links) { if (l.dotted) { dotted++; assert.equal(s.calls[l.call].kind, 'copy'); } if (l.ball != null) balls++; }
-  assert.ok(dotted > 20 && balls > 20, dotted + ' dotted, ' + balls + ' balls');
+  let dotted = 0, solid = 0;
+  for (let t = 0; t < 600; t += 0.25) for (const l of sc.at(t).links) { if (l.dotted) { dotted++; assert.equal(s.calls[l.call].kind, 'copy'); } else solid++; }
+  assert.ok(dotted > 20 && solid > 20, dotted + ' dotted, ' + solid + ' solid');
 });
 
 test('scene: a frame takes well under a millisecond, even six hours in', () => {

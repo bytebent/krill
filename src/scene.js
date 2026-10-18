@@ -7,9 +7,8 @@
  *   y       has no sound behind it: a height seeded per slot that drifts slowly with the eras
  *   size    the loudness of the creature's current (or last) call, from its lane loudness range;
  *           loudness never moves a creature
- *   links   an answer draws a solid line from caller to answerer, with a ball that leaves the
- *           caller as its call ends and arrives as the answer starts; a copy draws a dotted line
- *           from the creature it copies (an answer that copies: dotted, with the ball)
+ *   links   when an answer starts, a solid line from caller to answerer appears and fades; a
+ *           copy draws a dotted line from the creature it copies (an answer that copies: dotted)
  *
  * The scopes themselves (each creature's own signal, fading with its level) come from the
  * player; this file only places them.
@@ -27,7 +26,6 @@
   const LEAN_TC = 0.6;          // s, the voice's lean easing (Voice.leanK)
   const HEIGHT = 0.42;          // how far the height drifts around its home
   const HOME = 0.5;             // homes spread over -HOME..HOME
-  const BALL_MIN = 0.35;        // s, shortest ball flight (answers that start almost at once)
   const LINE_FADE = 1.4;        // s, an answer's line after the answer starts
   const COPY_FADE = 2.0;        // s, a copy's dotted line after the copy starts
   const REACH = 0.86;           // creatures stay inside this share of the circle's radius
@@ -105,14 +103,12 @@
         if (c.t + COPY_FADE < t) continue;
         const copy = c.kind === 'copy', to = c.slot;
         if (c.of != null) {
-          const src = score.calls[c.of], t0 = Math.min(src.end, c.t - BALL_MIN), t1 = c.t;
-          if (t < t0 || t > t1 + (copy ? COPY_FADE : LINE_FADE) || src.slot === to) continue;
-          const ball = t <= t1 ? (t - t0) / (t1 - t0) : null;
-          const alpha = t <= t1 ? 1 : 1 - (t - t1) / (copy ? COPY_FADE : LINE_FADE);
-          links.push({ call: k, from: src.slot, to, dotted: copy, ball, alpha });
+          const src = score.calls[c.of], fade = copy ? COPY_FADE : LINE_FADE;
+          if (t < c.t || t > c.t + fade || src.slot === to) continue;
+          links.push({ call: k, from: src.slot, to, dotted: copy, alpha: 1 - (t - c.t) / fade });
         } else if (copy && copyFrom.has(k)) {
           if (t < c.t || t > c.t + COPY_FADE) continue;
-          links.push({ call: k, from: copyFrom.get(k), to, dotted: true, ball: null, alpha: 1 - (t - c.t) / COPY_FADE });
+          links.push({ call: k, from: copyFrom.get(k), to, dotted: true, alpha: 1 - (t - c.t) / COPY_FADE });
         }
       }
       return { t, where, links };

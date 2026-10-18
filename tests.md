@@ -7,7 +7,7 @@ Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 Moanback only when checking that a long, monotonous call works, or when a test needs a
 Throat + Mouth creature.
 
-**Now: 93 Node tests passing** (about 40 s, most of it the audio tests), plus **57 browser checks**
+**Now: 93 Node tests passing** (about 40 s, most of it the audio tests), plus **58 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -196,7 +196,7 @@ short buzzes. Rests are exact digital silence.
 
 ## Batch 10 · visualizer
 
-![The visualizer: Glassfin calls, two answers on their way](docs/tests/10-visualizer.png)
+![The visualizer: Glassfin calls, two answers on their way (with the ball, since removed)](docs/tests/10-visualizer.png)
 
 - Scene (Node): the same pond gives the same scene and another seed differs; left to right is
   the voice's own pan (within 0.02, 800+ checks), everyone stays inside the circle; heights are
@@ -215,3 +215,16 @@ short buzzes. Rests are exact digital silence.
   falls back to a data: URL. Lines could end in empty space after the caller went quiet; their
   ends are now small dots that fade with the line.
 - Not tested here: Safari (WebKit can't be installed in this sandbox).
+
+### After your review
+
+![X/Y scopes: Glassfin's whistle, Siltclicker's clicks, Wicklace's buzz](docs/tests/10-xy-scopes.png)
+
+- **The ball is gone:** an answer's line appears as the answer starts and fades over 1.4 s. The
+  scene test checks nothing shows before the answer, full brightness at its start, then the fade. ✓
+- **Scope styles:** Ring, Line and X/Y, remembered between visits. X/Y's pitch finder lands on
+  the period of test tones (220 Hz: 218 samples for 218.2, 1 kHz: 48, 3 kHz: 16). In the pond,
+  Glassfin's whistle draws a near-circle, Siltclicker's clicks a decaying spiral and Wicklace's
+  buzz a looping shape. The scopes now carry 1024 samples so low voices fit in X/Y. ✓
+- **Fixed while testing:** X/Y first drew shapes a third of the size they should be, then flat
+  edges where loud peaks hit the limit; it now scales with the voice's level and rounds peaks off.

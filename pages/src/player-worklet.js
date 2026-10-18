@@ -10,7 +10,7 @@
 // pan) into a ring of blocks; every SEND frames the last SCOPE samples of each voice go out.
 // A voice that was asleep for a block gives zeros there, so silence shows as nothing.
 'use strict';
-const SCOPE = 512, SEND = 1024, RING = 32;      // RING blocks of 32 samples = 1024
+const SCOPE = 1024, SEND = 1024, RING = 64;     // RING blocks of 32 samples = 2048
 const MAX_CATCH_UP = 48000 * 0.25;              // wav mode: frames rendered per callback at most
 const RESEEK = 1.5;                             // wav mode: seek when this many seconds off
 

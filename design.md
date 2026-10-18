@@ -474,8 +474,14 @@ pitch per unit; the audio stage moves between them.
 - **Size** follows each call's loudness. Loudness never changes the position.
 - **Fades with volume:** a scope's brightness follows its own level, so a silent creature isn't
   shown at all.
-- **Answers:** a solid white line from the caller to the answerer, with a ball passing along it
-  as the answer starts. **Copies:** a dotted line.
+- **Answers:** a solid white line from the caller to the answerer that appears as the answer
+  starts and fades. **Copies:** a dotted line. (A ball travelling along the line was tried and
+  dropped: it read as arriving too early or too late.)
+- **Scope styles** (a switch on the page, remembered): **Ring** (the waveform bends a circle),
+  **Line** (a classic trace), **X/Y** (the voice against itself a quarter of its pitch period
+  later, found from its own signal: a pure tone draws a circle, richer voices loops and
+  spirals, clicks scribble; a soft limit rounds off loud peaks). Later: a style per creature,
+  and X/Y of two creatures against each other while one answers. [Decided]
 - **Plays live:** load a pond file (or open the pond page's pond) and press play; the voices
   render in real time in the page, so it can play for as long as you like.
 - **Plays WAVs too:** drop a krill WAV and it plays that file, reading the pond from its `krll`
