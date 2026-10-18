@@ -1,0 +1,70 @@
+{
+  "format": "krill-creature",
+  "version": 1,
+  "name": "Ticker",
+  "seed": 1717,
+  "source": "dolphin",
+  "mouth": true,
+  "pitch": {
+    "low": 48,
+    "high": 72,
+    "contour": [0, 0]
+  },
+  "ranges": {
+    "dolphin.rate": [-5, -2],
+    "dolphin.keytrack": [1, 1],
+    "dolphin.freerate": [13, 13],
+    "dolphin.pattern": [0, 3],
+    "dolphin.coda": [0, 8],
+    "dolphin.jitter": [0, 0.2],
+    "dolphin.rubato": [0, 0.5],
+    "dolphin.ornament": [0, 0],
+    "dolphin.clicktone": [-1, 1],
+    "dolphin.clickwidth": [0.1, 0.1],
+    "dolphin.ring": [0.1, 0.6],
+    "dolphin.vowel": [0, 0.5],
+    "dolphin.shape": [1, 4],
+    "dolphin.sweep": [-1, 1.5],
+    "dolphin.time": [0.3, 1.5],
+    "dolphin.wtranspose": [0, 0],
+    "dolphin.harmonics": [1, 2],
+    "dolphin.harmlevel": [-18, -8],
+    "dolphin.register": [0, 0.25],
+    "dolphin.biphon": [0, 0.3],
+    "dolphin.size": [0.2, 0.6],
+    "dolphin.sizemode": [0, 0],
+    "mouth.tongueX": [0, 1],
+    "mouth.tongueY": [0, 1],
+    "mouth.tip": [0, 0],
+    "mouth.jaw": [0.2, 0.6],
+    "mouth.lips": [0.2, 1],
+    "mouth.round": [0, 0.5],
+    "mouth.nasal": [0, 0.15],
+    "mouth.length": [9, 18],
+    "mouth.damping": [0.4, 0.6]
+  },
+  "morph": 0.5,
+  "call": {
+    "units": [5, 12],
+    "unitLength": [0.08, 0.5],
+    "gap": [0.02, 0.25],
+    "legato": false,
+    "evolve": "rise",
+    "evolveAmount": 0.6,
+    "rest": [2, 15],
+    "attack": [0.005, 0.03],
+    "release": [0.05, 0.3]
+  },
+  "signature": {
+    "amount": 0.2,
+    "variation": 0.4
+  },
+  "manner": {
+    "talkative": 0.6,
+    "responsive": 0.6,
+    "mimicry": 0.6,
+    "pan": 0.5,
+    "wander": 0.4,
+    "level": -10
+  }
+}

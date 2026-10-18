@@ -1,0 +1,57 @@
+{
+  "format": "krill-creature",
+  "version": 1,
+  "name": "Moanback",
+  "seed": 311,
+  "source": "throat",
+  "mouth": true,
+  "pitch": {
+    "low": 36,
+    "high": 52,
+    "contour": [-2, 3]
+  },
+  "ranges": {
+    "throat.voicing": [0.85, 1],
+    "throat.breathy": [0.2, 0.6],
+    "throat.tense": [0, 0.3],
+    "throat.creaky": [0, 0.35],
+    "throat.thin": [0, 0.3],
+    "throat.growl": [0, 0.15],
+    "throat.jitter": [0.05, 0.2],
+    "throat.shimmer": [0.05, 0.2],
+    "throat.source": [0, 0],
+    "mouth.tongueX": [0.5, 1],
+    "mouth.tongueY": [0.2, 0.8],
+    "mouth.tip": [0, 0],
+    "mouth.jaw": [0.1, 0.5],
+    "mouth.lips": [0.4, 0.9],
+    "mouth.round": [0.3, 0.9],
+    "mouth.nasal": [0, 0.15],
+    "mouth.length": [24, 32],
+    "mouth.damping": [0.4, 0.6]
+  },
+  "morph": 0.7,
+  "call": {
+    "units": [1, 2],
+    "unitLength": [2, 9],
+    "gap": [0.3, 1.5],
+    "legato": true,
+    "evolve": "fall",
+    "evolveAmount": 0.5,
+    "rest": [10, 60],
+    "attack": [0.3, 1.5],
+    "release": [1, 4]
+  },
+  "signature": {
+    "amount": 0.3,
+    "variation": 0.3
+  },
+  "manner": {
+    "talkative": 0.3,
+    "responsive": 0.4,
+    "mimicry": 0.3,
+    "pan": 0.2,
+    "wander": 0.15,
+    "level": -6
+  }
+}

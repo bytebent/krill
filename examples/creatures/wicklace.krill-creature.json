@@ -1,0 +1,48 @@
+{
+  "format": "krill-creature",
+  "version": 1,
+  "name": "Wicklace",
+  "seed": 50,
+  "source": "throat",
+  "mouth": false,
+  "pitch": {
+    "low": 70,
+    "high": 96,
+    "contour": [-5, 5]
+  },
+  "ranges": {
+    "throat.voicing": [0.85, 1],
+    "throat.breathy": [0, 0.2],
+    "throat.tense": [0.4, 0.9],
+    "throat.creaky": [0, 0.2],
+    "throat.thin": [0.5, 1],
+    "throat.growl": [0, 0.1],
+    "throat.jitter": [0.1, 0.5],
+    "throat.shimmer": [0.1, 0.4],
+    "throat.source": [0, 1]
+  },
+  "morph": 0.2,
+  "call": {
+    "units": [3, 9],
+    "unitLength": [0.05, 0.4],
+    "gap": [0, 0.15],
+    "legato": false,
+    "evolve": "wander",
+    "evolveAmount": 0.5,
+    "rest": [3, 25],
+    "attack": [0.005, 0.05],
+    "release": [0.03, 0.4]
+  },
+  "signature": {
+    "amount": 0.4,
+    "variation": 0.25
+  },
+  "manner": {
+    "talkative": 0.5,
+    "responsive": 0.5,
+    "mimicry": 0.4,
+    "pan": -0.7,
+    "wander": 0.5,
+    "level": -14
+  }
+}
