@@ -19,10 +19,11 @@
     return (x ^ (x >>> 15)) >>> 0;
   }
 
-  // combine a seed and any number of integer tags into one 32-bit value
+  // combine a seed and any number of integer tags into one 32-bit value; order matters
+  // (hash(s, 1, 2) and hash(s, 2, 1) differ), so slot and re-roll numbers can't collide
   function hash(seed) {
     let h = mix32(seed >>> 0);
-    for (let i = 1; i < arguments.length; i++) h = mix32(h ^ mix32(arguments[i] >>> 0));
+    for (let i = 1; i < arguments.length; i++) h = mix32((Math.imul(h, 0x01000193) ^ mix32(arguments[i] >>> 0)) >>> 0);
     return h;
   }
 
@@ -43,7 +44,7 @@
     u32() {
       const t = (((this.a + this.b) >>> 0) + this.d) >>> 0;
       this.d = (this.d + 1) >>> 0;
-      this.a = this.b ^ (this.b >>> 9);
+      this.a = (this.b ^ (this.b >>> 9)) >>> 0;
       this.b = (this.c + (this.c << 3)) >>> 0;
       this.c = ((this.c << 21) | (this.c >>> 11)) >>> 0;
       this.c = (this.c + t) >>> 0;
