@@ -125,6 +125,73 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   ok('a version 1 creature migrates on load', await page.evaluate(() => window.krillPage.creature.body === 'tube' && !document.getElementById('padBox').hidden && document.querySelectorAll('#g-body .rng').length === 9));
 
   ok('no console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+  // ---------------- pond page ----------------
+  console.log('\npond.html');
+  const pp = await browser.newPage({ viewport: { width: 1180, height: 900 }, acceptDownloads: true });
+  const perr = [];
+  pp.on('console', m => { if (m.type() === 'error') perr.push(m.text()); });
+  pp.on('pageerror', e => perr.push(String(e)));
+  await pp.goto('file://' + path.join(ROOT, 'pages', 'pond.html'));
+  await pp.waitForFunction(() => window.krillPond && window.krillPond.score);
+  await pp.evaluate(() => window.krillPond.load(window.KRILL_POND_EXAMPLE));
+  const p0 = await pp.evaluate(() => ({ calls: window.krillPond.score.calls.length, slots: document.querySelectorAll('.slot:not(.empty)').length, empty: document.querySelectorAll('.slot.empty').length }));
+  ok('pond page loads the example pond and scores it', p0.calls > 50 && p0.slots === 4 && p0.empty === 2, p0.calls + ' calls');
+  const lit2 = await pp.evaluate(() => { const c = document.getElementById('sketch'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 150) n++; return n / (d.length / 4); });
+  ok('the sketch is drawn', lit2 > 0.02, (lit2 * 100).toFixed(1) + '% lit');
+  if (SHOTS) {
+    await pp.addStyleTag({ content: '.actions{position:static}' });
+    await pp.screenshot({ path: path.join(SHOTS, '08-pond-page.png'), fullPage: true });
+    await pp.addStyleTag({ content: '.actions{position:sticky}' });
+  }
+  const sig = () => pp.evaluate(() => JSON.stringify(window.krillPond.score.calls.map(c => [c.slot, +c.t.toFixed(3)])));
+  const s0 = await sig();
+  await pp.fill('#seed', '4242'); await pp.press('#seed', 'Enter'); await pp.locator('#seed').blur();
+  await pp.waitForTimeout(300);
+  ok('a new seed rescores the sketch', (await sig()) !== s0 && await pp.evaluate(() => window.krillPond.pond.seed === 4242));
+  const s1 = await sig();
+  await pp.locator('.slot').nth(1).locator('button[title^="Re-roll"]').click();
+  await pp.waitForTimeout(300);
+  ok('re-roll changes the score and counts', (await sig()) !== s1 && await pp.evaluate(() => window.krillPond.pond.slots[1].rerolls === 1));
+  await pp.locator('.slot').nth(0).locator('.seg >> text=Ignores').click();
+  await pp.waitForTimeout(300);
+  ok('Ignores takes a lane out of the conversation', await pp.evaluate(() => window.krillPond.pond.slots[0].ignore && window.krillPond.score.calls.filter(c => c.slot === 0).every(c => c.depth === 0)));
+  await pp.locator('.slot').nth(4).locator('select').selectOption({ label: 'Siltclicker' });
+  await pp.waitForTimeout(300);
+  ok('adding a creature to an empty slot', await pp.evaluate(() => window.krillPond.pond.slots[4] && window.krillPond.pond.slots[4].creature.name === 'Siltclicker' && window.krillPond.score.calls.some(c => c.slot === 4)));
+  const lt = pp.locator('.slot').nth(4).locator('.track');
+  await lt.evaluate(e => e.scrollIntoView({ block: 'center' }));
+  const lb = await lt.boundingBox();
+  await pp.mouse.move(lb.x + lb.width * 0.75, lb.y + lb.height / 2); await pp.mouse.down(); await pp.mouse.move(lb.x + 3, lb.y + lb.height / 2, { steps: 5 }); await pp.mouse.up();
+  const loud = await pp.evaluate(() => window.krillPond.pond.slots[4].loudness);
+  ok('the loudness range moves its low end and keeps the top at 0', loud[1] === 0 && loud[0] < -15, JSON.stringify(loud));
+  await pp.locator('.slot').nth(4).locator('button[title^="Remove"]').click();
+  ok('removing a creature empties the slot', await pp.evaluate(() => window.krillPond.pond.slots[4] === null));
+  await pp.click('#g-pitch .seg >> text=On');
+  await pp.waitForTimeout(300);
+  ok('Harmonise switches on', await pp.evaluate(() => window.krillPond.pond.pitch.harmonise && /HARMONISE/.test(document.getElementById('ro').textContent)));
+  // render a short preview and get it back as a WAV
+  await pp.fill('#minutes', '0.5'); await pp.press('#minutes', 'Enter'); await pp.locator('#minutes').blur();
+  const t2 = Date.now();
+  await pp.click('#render');
+  await pp.waitForFunction(() => /Rendered/.test(document.getElementById('status').textContent), null, { timeout: 120000 });
+  ok('Render preview renders and loads the player', await pp.evaluate(() => !document.getElementById('player').hidden && !!document.getElementById('audio').src), ((Date.now() - t2) / 1000).toFixed(1) + ' s for 30 s');
+  const [pw] = await Promise.all([pp.waitForEvent('download'), pp.click('#dl')]);
+  const pwav = W.parse(new Uint8Array(fs.readFileSync(await pw.path())));
+  ok('Download WAV gives the preview', pwav.frames === 30 * 48000 && pwav.meta && pwav.meta.kind === 'pond' && pwav.meta.seed === 4242, pw.suggestedFilename());
+  const [pd] = await Promise.all([pp.waitForEvent('download'), pp.click('#save')]);
+  const back2 = require('../src/pond.js').normalise(fs.readFileSync(await pd.path(), 'utf8'));
+  ok('Save downloads a pond that loads back cleanly', back2.warnings.length === 0 && back2.pond.seed === 4242 && back2.pond.slots[0].ignore && back2.pond.slots[1].rerolls === 1, pd.suggestedFilename());
+  await pp.fill('#minutes', '30'); await pp.press('#minutes', 'Enter'); await pp.locator('#minutes').blur();
+  ok('long pieces show the Node command', await pp.evaluate(() => !document.getElementById('longNote').hidden && /first 10 min/.test(document.getElementById('render').textContent)));
+  await pp.reload();
+  await pp.waitForFunction(() => window.krillPond && window.krillPond.score);
+  ok('the pond survives a reload', await pp.evaluate(() => window.krillPond.pond.seed === 4242 && window.krillPond.pond.output.minutes === 30));
+  // Edit opens the creature on the creature page
+  await pp.locator('.slot').nth(2).locator('button[title^="Open"]').click();
+  await pp.waitForFunction(() => window.krillPage && window.krillPage.creature);
+  ok('Edit opens that creature on the creature page', await pp.evaluate(() => window.krillPage.creature.name === 'Ticker'));
+  ok('no console errors on the pond page', perr.length === 0, perr.slice(0, 3).join(' | '));
   await browser.close();
   const failed = results.filter(r => !r.ok).length;
   console.log('\n' + (results.length - failed) + ' passed, ' + failed + ' failed');

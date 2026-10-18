@@ -42,7 +42,7 @@ examples/          a few creatures and ponds for testing
 | 05 | **Creature page** | Window, LCD (spectrogram, tube shape), range sliders, vowel-pad region, call and signature panels, manner, names, Call / Signature playback via the render worker, Render 60 s solo, Save / Load. | Headless browser check · **You:** design a few creatures | Done |
 | 06 | **Conductor** | `conductor.js`: floor, Overlap, response gaps, Talkative / Responsive, motifs stored as range positions, copying into the copier's ranges, mutation, motif memory, harmonise, opposite-side answers, eras, slot re-rolls. | Tests: turn rules, determinism, one-creature pond | Done |
 | 07 | **Pond render** | Multi-slot rendering in `tools/render.js` with progress, CPU and timing report, long renders streamed to disk. | Tests · **You:** a 20-minute render | Done (with 06) |
-| 08 | **Pond page** | Slots, sketch view from the score, Pitch / Talk / Space panels, preview render up to 10 min, download, Save / Load pond, the Node command shown for longer pieces. | Headless browser check · **You** | |
+| 08 | **Pond page** | Slots, sketch view from the score, Pitch / Talk / Space panels, preview render up to 10 min, download, Save / Load pond, the Node command shown for longer pieces. | Headless browser check · **You** | Built, waiting for you |
 | 09 | **Listening round** | Tuning defaults and ranges from what you hear; fix what sounds wrong. | **You** | |
 
 ## Not in the prototype

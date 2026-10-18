@@ -71,3 +71,16 @@ test('Render 60 s solo produces a complete WAV', () => {
   assert.ok(calls > 5, 'progress reported');
   assert.equal(r.fileName, 'krill_wicklace_3_10s.wav');
 });
+
+test('the pond page preview renders a pond (or its first minutes) to WAV', () => {
+  const PD = require('../src/pond.js');
+  const p = PD.normalise(fs.readFileSync(path.join(ROOT, 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8')).pond;
+  let n = 0;
+  const r = P.pondWav(p, { seconds: 12 }, () => n++);
+  const w = W.parse(r.bytes);
+  assert.equal(w.frames, 12 * 48000);
+  assert.equal(w.bits, p.output.bits);
+  assert.equal(w.meta.kind, 'pond');
+  assert.equal(w.meta.seconds, 12);
+  assert.ok(n > 10, 'progress');
+});

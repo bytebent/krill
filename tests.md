@@ -7,7 +7,7 @@ Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 Moanback only when checking that a long, monotonous call works, or when a test needs a
 Throat + Mouth creature.
 
-**Now: 81 Node tests passing** (about 25 s, most of it the audio tests), plus **22 browser checks**
+**Now: 82 Node tests passing** (about 30 s, most of it the audio tests), plus **38 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -142,3 +142,18 @@ short buzzes. Rests are exact digital silence.
   width 0.04995 vs 0.05). Fixed: sliders clamp after rounding.
 - Full 20-minute example pond: 59 s to render (20× real time), 79 MB of memory (streamed to disk),
   header sizes match the 330 MB file, peak -7.2 dBFS, engines 19 dB clear of their clamps.
+
+## Batch 08 · pond page
+
+![The pond page with the example pond](docs/tests/08-pond-page.png)
+
+- Browser check, 16 of 16 on the pond page: loads and scores the example pond (254 calls in
+  33 ms), draws the sketch, a new seed and a slot re-roll rescore it, Ignores takes a lane out of
+  the conversation, adding Siltclicker to an empty slot, the loudness range moves its low end and
+  keeps the top at 0, removing a creature, Harmonise, Render preview (30 s rendered in 2.4 s) with
+  the player and Download WAV, Save gives a pond that loads back cleanly, long pieces show the
+  Node command, the pond survives a reload, Edit opens the creature on the creature page, no
+  console errors. ✓
+- The creature page's 22 checks still pass; its Pond button now opens the pond page.
+- Node: the pond preview renders a pond's first minutes to a complete WAV. ✓
+- **Fixed while testing:** the slot loudness and Response sliders were cramped; widened.

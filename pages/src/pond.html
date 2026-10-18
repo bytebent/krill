@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>krill · pond</title>
+<style>
+/*KIT_CSS*/
+.titlebar #name{width:190px}
+.titlebar #dirty{color:var(--purple);font-weight:700}
+.titlebar .stripes i:nth-child(1){background:var(--green)} .titlebar .stripes i:nth-child(2){background:var(--yellow)} .titlebar .stripes i:nth-child(3){background:var(--orange)}
+.titlebar .stripes i:nth-child(4){background:var(--red)} .titlebar .stripes i:nth-child(5){background:var(--purple)} .titlebar .stripes i:nth-child(6){background:var(--blue)}
+.view.wide{height:250px}
+.slots{display:flex;flex-direction:column;gap:6px}
+.slot{display:grid;grid-template-columns:28px 170px 140px minmax(300px,1fr) auto;align-items:center;gap:10px;padding:5px 8px;border-radius:5px;background:rgba(255,255,255,.35);border:1px solid #c8c8ce}
+.slot.empty{background:transparent;border-style:dashed}
+.slot .led{width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.45) inset, 0 0 6px rgba(0,0,0,.15);justify-self:center}
+.slot.empty .led{opacity:.3}
+.slot .nm{font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot .sp{font-size:11px;color:var(--ink-soft)}
+.slot .btns{display:flex;gap:5px;align-items:center}
+.slot .rng{grid-template-columns:64px 1fr 104px}
+.slot select.field{width:120px}
+#g-talk-r .rng{grid-template-columns:72px 1fr 112px}
+.player{display:flex;align-items:center;gap:10px;margin-top:8px}
+.player audio{flex:1;height:30px}
+.player[hidden]{display:none}
+#cmd{font:11px var(--mono);color:var(--ink-soft);user-select:all}
+.lenbox{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700}
+.lenbox input{width:64px}
+</style>
+</head>
+<body>
+<div class="window" role="application" aria-label="krill pond page">
+  <div class="titlebar">
+    <span class="closebox" aria-hidden="true"></span>
+    <span class="stripes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+    <h1>krill</h1><span class="sub">pond</span>
+    <span class="lines"></span>
+    <input class="field" id="name" maxlength="40" aria-label="Pond name" spellcheck="false">
+    <span id="dirty" title="Changed since it was saved or loaded" hidden>*</span>
+    <span class="lines"></span>
+    <a class="gel grey small" id="toCreature" href="creature.html" style="text-decoration:none">Creature</a>
+  </div>
+  <div class="body">
+    <div class="screen">
+      <div class="view wide"><canvas class="base" id="sketch" aria-label="Sketch of the whole piece: calls per slot over time"></canvas><canvas id="sketchTop" aria-hidden="true"></canvas></div>
+      <div class="readouts" id="ro" aria-live="off"></div>
+    </div>
+    <div class="player" id="player" hidden><audio id="audio" controls preload="auto"></audio><button class="gel grey small" id="dl" type="button">Download WAV</button></div>
+
+    <div class="section"><span class="dot" style="background:var(--graphite)"></span>Slots<span class="rule"></span></div>
+    <div class="slots" id="slots" style="margin-top:10px"></div>
+
+    <div class="rows">
+      <fieldset><legend><span class="dot"></span>Pitch</legend><div class="knobs" id="g-pitch" style="justify-content:flex-start;gap:16px;align-items:center"></div></fieldset>
+      <fieldset><legend><span class="dot"></span>Talk</legend><div class="knobs" id="g-talk"></div><div class="ranges" id="g-talk-r" style="margin-top:8px"></div></fieldset>
+      <fieldset><legend><span class="dot"></span>Space · Output</legend><div class="knobs" id="g-out"></div></fieldset>
+    </div>
+
+    <p class="note" id="longNote" hidden style="margin-top:12px">Previews render up to 10 minutes here. For the full length, save the pond and run: <span id="cmd"></span></p>
+    <div class="actions">
+      <button class="gel" id="render" type="button">Render preview</button>
+      <span class="progress" id="prog"><i></i></span>
+      <span class="sep"></span>
+      <span class="lenbox">Seed <input class="field" id="seed" type="number" min="1" step="1" aria-label="Seed"><button class="sq" id="dice" type="button" aria-label="Random seed" title="Random seed">&#x2684;</button></span>
+      <span class="lenbox">Length <input class="field" id="minutes" type="number" min="0.1" max="600" step="0.5" aria-label="Length in minutes"> min</span>
+      <span class="sep"></span>
+      <button class="gel grey small" id="example" type="button">Example pond</button>
+      <button class="gel grey small" id="new" type="button">New</button>
+      <button class="gel grey small" id="load" type="button">Load&#x2026;</button>
+      <button class="gel grey small" id="save" type="button">Save</button>
+      <span class="status" id="status" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+</div>
+<input type="file" id="file" accept=".json,application/json" hidden>
+<script type="text/plain" id="worker-src">/*WORKER*/</script>
+<script>/*MAIN*/</script>
+</body>
+</html>

@@ -13,7 +13,7 @@ const js = files => files.map(f => '// ---- ' + f + '\n' + read(f)).join('\n').r
 
 const ENGINES = ['vendor/throat-engine.js', 'vendor/dolphin-engine.js', 'vendor/mouth-tube.js'];
 const CORE = ['src/rng.js', 'src/scales.js', 'src/parts.js', 'src/creature.js', 'src/roll.js', 'src/engines.js', 'src/version.js',
-  'src/voice.js', 'src/mixer.js', 'src/wav.js', 'src/preview.js'];
+  'src/voice.js', 'src/pond.js', 'src/conductor.js', 'src/mixer.js', 'src/wav.js', 'src/preview.js'];
 
 function examples() {
   const dir = path.join(ROOT, 'examples', 'creatures');
@@ -31,7 +31,18 @@ function buildCreature() {
     .replace('/*MAIN*/', () => main);
 }
 
-const PAGES = { 'pages/creature.html': buildCreature };
+function buildPond() {
+  const worker = js(ENGINES.concat(CORE, ['pages/src/worker.js']));
+  const pondEx = fs.readFileSync(path.join(ROOT, 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8');
+  const main = examples() + 'window.KRILL_POND_EXAMPLE = ' + JSON.stringify(JSON.parse(pondEx)) + ';\n' +
+    js(['src/rng.js', 'src/scales.js', 'src/parts.js', 'src/creature.js', 'src/roll.js', 'src/pond.js', 'src/conductor.js', 'pages/src/kit.js', 'pages/src/pond-page.js']);
+  return read('pages/src/pond.html')
+    .replace('/*KIT_CSS*/', () => read('pages/src/kit.css'))
+    .replace('/*WORKER*/', () => worker)
+    .replace('/*MAIN*/', () => main);
+}
+
+const PAGES = { 'pages/creature.html': buildCreature, 'pages/pond.html': buildPond };
 
 if (require.main === module) {
   for (const out in PAGES) {

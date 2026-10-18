@@ -419,6 +419,11 @@ mouth-tube purple.
   renders only on **Render preview**.
 - Lengths above the preview limit show the Node command to run instead, with the pond file to save.
 - Clicking a creature's name opens it on the creature page.
+- As built: each slot row has Add/Replace (an example or a file), Talks / Ignores, the loudness
+  range (its top fixed at 0 dB), Re-roll, Edit (opens the creature on the creature page) and
+  Remove. The sketch shows the era's density, calls per lane (fainter when quieter, copies
+  outlined, answers linked) and each call's pan; click it to jump the player. Render preview
+  renders up to 10 minutes in the worker into a WAV for the page's player and Download. [Decided]
 
 ### 7.3 Efficiency rules
 [Decided: don't compute what isn't active]

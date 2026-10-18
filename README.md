@@ -4,7 +4,7 @@ A generator for long ambient pieces made by a pond of alien creatures. Each crea
 bytebent engines (Throat, Dolphin, mouth-tube), rolls every sound from its own ranges, and takes
 turns, answers and copies the others. The pond renders to a WAV file.
 
-Status: **prototype, batch 07 of 09**. Ponds render to WAV from the command line; the pond page is next.
+Status: **prototype, batch 08 of 09**. Both pages work; the listening round is next.
 
 - `design.md`: what krill is and how it works
 - `plan.md`: build batches for the prototype
@@ -18,7 +18,16 @@ creature, press **Call** (or Space) to hear one call, **Signature** for its sign
 file onto the page to open one. The four examples are under **Examples**. The page remembers the
 creature you were working on.
 
-The page is built from `pages/src/` with `node tools/build-pages.js`; rebuild after changing
+## Pond page
+
+Open `pages/pond.html` (keep it next to `creature.html`). Put creatures in up to six slots, set
+each lane to talk or ignore the others and its loudness range, then the key, talk and output
+settings. The sketch on top shows the whole piece as you change things; **Render preview** renders
+up to 10 minutes in the page to play and download. For longer pieces, **Save** the pond and run
+`node tools/render.js my-pond.krill-pond.json`. **Edit** on a slot opens that creature on the
+creature page.
+
+The pages are built from `pages/src/` with `node tools/build-pages.js`; rebuild after changing
 `src/`, `vendor/` or `pages/src/`. `node tools/check-pages.js` drives it in headless Chromium.
 
 ## Layout

@@ -144,7 +144,28 @@
     return { bytes: sink.bytes(), fileName: job.fileName, stats: job.render.stats(), calls: job.score.calls.length };
   }
 
-  const api = { previewCall, spectrogram, soloWav, START };
+  // a pond (or its first `seconds`) straight into WAV bytes (the pond page's preview)
+  function pondWav(pond, opts, onProgress) {
+    const job = M.pondRender(pond, { seconds: opts.seconds });
+    const sink = W.memorySink();
+    const p = job.pond;
+    const wav = new W.WavWriter(sink, {
+      sampleRate: 48000, bits: p.output.bits, seed: p.seed,
+      title: 'krill · ' + p.name + ' · seed ' + p.seed, software: 'krill ' + job.meta.krill,
+      comment: p.name + ' pond, ' + job.meta.pitch + ', ' + job.meta.seconds + ' s, seed ' + p.seed, meta: job.meta,
+    });
+    const CH = 48000, L = new Float32Array(CH), Rr = new Float32Array(CH);
+    let lastP = -1;
+    while (!job.render.done) {
+      wav.write(L, Rr, job.render.read(L, Rr, CH));
+      const q = Math.floor(job.render.progress * 200);
+      if (onProgress && q !== lastP) { lastP = q; onProgress(job.render.progress); }
+    }
+    wav.finish();
+    return { bytes: sink.bytes(), fileName: job.fileName, stats: job.render.stats(), calls: job.score.calls.length };
+  }
+
+  const api = { previewCall, spectrogram, soloWav, pondWav, START };
   if (inNode) module.exports = api;
   else K.preview = api;
 })(typeof self !== 'undefined' ? self : this);
