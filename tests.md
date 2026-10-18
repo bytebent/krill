@@ -3,7 +3,7 @@
 Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 `node tests/run.js`.
 
-**Now: 59 Node tests passing** (about 19 s, most of it the audio tests), plus **20 browser checks**
+**Now: 62 Node tests passing** (about 19 s, most of it the audio tests), plus **21 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -84,7 +84,7 @@ short buzzes. Rests are exact digital silence.
   drag edits the creature and marks it changed, double-click locks, drawing on the vowel pad
   sets both tongue ranges, switching species rebuilds the source panel, Signature in free mode,
   Save downloads a file that loads back cleanly, Render 60 s solo downloads a valid WAV in
-  about 1 s, the creature survives a reload, no horizontal scroll at phone width, no console
+  about 1 s, the creature survives a reload, no console
   errors. ✓
 - Node: the built page is current, previews repeat for a seed, the Signature button plays the
   signature, a 1.5 kHz tone lands in its spectrogram bin, the solo WAV is complete. ✓
@@ -96,6 +96,14 @@ short buzzes. Rests are exact digital silence.
 - **Fixed while testing:** the page read the creature before one existed (blank page);
   Dolphin's sliders were cramped three to a row (now two); the spectrogram's fixed -110 dB floor
   lit up Dolphin's faint click noise, so colours now follow each call's own peak (60 dB window).
-- Phone width:
 
-  ![Creature page at phone width](docs/tests/05-creature-phone.png)
+### After your review
+
+- **Parts registry:** sources and bodies moved into `src/parts.js`; voice, score, page and tools
+  no longer name an engine. Audio tests (measured pitch, calibration, headroom, chunk sizes)
+  passed unchanged, so the sound didn't move. New test: every part is complete. ✓
+- **Creature format 2:** `body` replaces `mouth`, tube ranges are `tube.*`; version 1 files
+  migrate on load (Node and in the page). The four examples are migrated. ✓
+- **Low-pass:** off is bit-identical to no filter and creates nothing; on at 1 kHz cuts the band
+  around 4 kHz to the bottom of the 60 dB window while the voice stays; unity gain at DC. ✓
+- Phone layout dropped (desktop only, min width 960 px).

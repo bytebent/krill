@@ -29,13 +29,15 @@ test('a previewed call is repeatable and carries what the LCD needs', () => {
   assert.deepEqual(a.L, b.L);
   assert.equal(a.L.length, Math.ceil((a.call.tail + 0.9) * 48000));
   assert.ok(a.call.units.length >= c.call.units[0]);
-  const m = a.call.units[0].mouth;
-  assert.ok(m && m.start && m.end, 'mouth shape per unit');
+  const m = a.call.units[0].body;
+  assert.equal(a.call.bodyView, 'tube');
+  assert.ok(m && m.start && m.end, 'body shape per unit');
   for (const id of ['tongueX', 'tongueY', 'jaw', 'lips', 'round', 'nasal']) assert.ok(m.start[id] >= 0 && m.start[id] <= 1, id);
-  assert.ok(m.start.length >= c.ranges['mouth.length'][0] && m.start.length <= c.ranges['mouth.length'][1], 'tube length in cm inside its range');
+  assert.ok(m.start.length >= c.ranges['tube.length'][0] && m.start.length <= c.ranges['tube.length'][1], 'tube length in cm inside its range');
   assert.notDeepEqual(P.previewCall(c, { pitch: DMIN, seed: 5 }).L, a.L);
   const bare = P.previewCall(example('glassfin'), { pitch: DMIN, seed: 1 });
-  assert.equal(bare.call.units[0].mouth, null);
+  assert.equal(bare.call.units[0].body, null);
+  assert.equal(bare.call.bodyView, null);
 });
 
 test('the Signature button plays the signature, the same shape for any seed when variation is 0', () => {

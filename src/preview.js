@@ -23,17 +23,17 @@
 
   const START = 0.05;                  // s of silence before the call
   const TAIL = 0.9;                    // s after the call's release
-  const MOUTH_IDS = ['tongueX', 'tongueY', 'tip', 'jaw', 'lips', 'round', 'nasal', 'length'];
-
-  // mouth shape at the start and end of a unit, for drawing the tube
-  function mouthOf(slot, u) {
+  // the body's parameter values at the start and end of a unit (for the page's body view)
+  function bodyOf(slot, u) {
+    const part = C.PARTS.BODIES[slot.body];
+    if (!part || !part.ns) return null;
     const base = {};
-    for (const id of MOUTH_IDS) base[id] = C.BY_KEY['mouth.' + id].def;
-    for (const l of slot.locked) if (l.engine === 'mouth') base[l.id] = l.value;
-    const a = Object.assign({}, base), b = Object.assign({}, base);
+    for (const p of part.params) base[p.id] = p.use === 'fixed' ? p.value : p.def;
+    for (const l of slot.locked) if (l.engine === part.ns) base[l.id] = l.value;
+    const a = Object.assign({}, base), b = Object.assign({}, base), pre = part.ns + '.';
     slot.vary.forEach((k, j) => {
-      if (!k.startsWith('mouth.')) return;
-      const id = k.slice(6);
+      if (!k.startsWith(pre)) return;
+      const id = k.slice(pre.length);
       a[id] = u.v0[j]; b[id] = u.v1[j];
     });
     return { start: a, end: b };
@@ -63,7 +63,8 @@
       call: {
         kind: call.kind, attack: call.attack, release: call.release, legato: call.legato,
         t: call.t, end: call.end, tail: call.tail,
-        units: call.units.map(u => ({ t: u.t, dur: u.dur, note: u.note, noteEnd: u.noteEnd, mouth: creature.mouth ? mouthOf(slot, u) : null })),
+        units: call.units.map(u => ({ t: u.t, dur: u.dur, note: u.note, noteEnd: u.noteEnd, body: bodyOf(slot, u) })),
+        bodyView: (C.PARTS.BODIES[creature.body] || {}).view || null,
       },
       peakDb: st.peakDb, enginePeakDb: st.enginePeakDb[0],
     };

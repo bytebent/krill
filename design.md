@@ -35,7 +35,9 @@ still to decide, **[Later]** agreed to leave out of the prototype.
 ## 3. Creatures
 
 ### 3.1 Species
-A creature is a **source**, with or without a **mouth**. [Decided: some creatures have no mouth]
+A creature is a **source** through a **body**; body "None" is the raw source. [Decided: some
+creatures have no mouth] Sources and bodies are entries in `src/parts.js`, so more of both can
+be added later (§7.1). [Decided]
 
 | Species | Source | Mouth | Character |
 |---|---|---|---|
@@ -105,6 +107,11 @@ inside the range. Setting min equal to max locks a parameter. [Decided]
 ### 3.7 Names
 Every creature has a **name**, stored in its file and shown in slots. **Dice** next to the name
 suggests a random one (e.g. "Glassfin", "Moanback"). [Decided: names needed for presets]
+
+### 3.8 Output filter
+An optional **low-pass** at the end of the creature (after the body, before pan): on/off and a
+fixed Cutoff (200 Hz–20 kHz), 24 dB/oct Butterworth. Not automated. It tames noisy Throat
+breath and loud high calls. When off it isn't computed at all. [Decided]
 
 ## 4. Motifs and imitation
 [Decided: turn-taking and imitation]
@@ -209,7 +216,22 @@ score ─► per creature: engine (Throat | Dolphin) ─► [mouth-tube] ─► 
                                                                    ... ──┘
 ```
 
-### 7.1 Engines
+### 7.1 Parts: sources and bodies
+[Decided: built so more sources and bodies are easy to add; none added yet]
+
+Everything krill knows about an engine lives in its entry in `src/parts.js`: its parameter
+table, species-default ranges, page groups and colours, how to create it, how it moves pitch
+(`setOffset` and its reach), its headroom and makeup gain, and (for sources) any key rules,
+such as Dolphin's pulse and whistle snapping. Loudness calibration is per source + body pair in
+the same file. The voice, score, page and tools only use that interface. Adding a part means:
+
+1. vendor the engine and add its entry (params, defaults, groups, `create`);
+2. run `tools/calibrate.js` and add its calibration entries;
+3. if it moves pitch in its own ways, give it key rules; if it needs its own view on the page
+   (like the tube's tract and vowel pad), add that view.
+The tests check every part is complete (groups name real parameters, every pair is calibrated).
+
+### 7.1.1 Engines
 - Copies of the reference engines live in `vendor/` with their source commit recorded in
   `vendor/VERSIONS.md`. Updating them is a deliberate step, so changes in Throat or Dolphin never
   silently change an old pond. [Decided]
@@ -255,11 +277,11 @@ score ─► per creature: engine (Throat | Dolphin) ─► [mouth-tube] ─► 
 ```json
 {
   "format": "krill-creature",
-  "version": 1,
+  "version": 2,
   "name": "Glassfin",
   "seed": 9071,
   "source": "dolphin",
-  "mouth": false,
+  "body": "none",
   "pitch": { "low": 60, "high": 84, "contour": [-3, 7] },
   "ranges": {
     "dolphin.register": [0.6, 1.0],
@@ -274,11 +296,13 @@ score ─► per creature: engine (Throat | Dolphin) ─► [mouth-tube] ─► 
   },
   "signature": { "amount": 0.4, "variation": 0.2 },
   "manner": { "talkative": 0.4, "responsive": 0.7, "mimicry": 0.5,
-              "pan": -0.4, "wander": 0.3, "level": -6 }
+              "pan": -0.4, "wander": 0.3, "level": -6 },
+  "filter": { "on": false, "cutoff": 8000 }
 }
 ```
 - Parameters not listed take the engine default, locked.
-- Unknown keys are kept on save. Older `version`s are migrated on load.
+- Unknown keys are kept on save. Older `version`s are migrated on load: version 1 had
+  `mouth: true/false` and `mouth.*` ranges, now `body: "tube" | "none"` and `tube.*`.
 
 ### 8.2 Pond: `<name>.krill-pond.json`
 ```json
@@ -387,6 +411,7 @@ mouth-tube purple.
   changes, once per 32-sample block at most. Dolphin's LFOs stay off, so they cost nothing.
   The tube runs one channel, not two.
 - **Pages**: the LCD redraws only when something changed, and slows down for "reduce motion".
+  Desktop only: no phone layout. [Decided]
   The sketch is recomputed only when a setting that affects the score changes. Hidden panels
   (Mouth with no mouth) don't update.
 - Speed is measured, not assumed: `tools/bench.js` (from batch 04) reports render speed per species
@@ -398,16 +423,8 @@ splits that into the engine's whole note plus Detune in cents. Contours are a st
 pitch per unit; the audio stage moves between them.
 
 ## 10. Later
-- **More sources** [Decided as a long-term aim]: any future bytebent synth should be able to
-  become a creature source. What that takes, from how Throat and Dolphin fit in now:
-  - a parameter table in `creature.js` (range, fixed or krill-driven, scale, step),
-  - the engine interface Krill already uses: `new Engine(sampleRate, seed)`, `setParam`,
-    `noteOn/noteOff`, `process` in 32-sample blocks, plus one way to move pitch continuously
-    (like Throat's Transpose or Dolphin's bend),
-  - a loudness calibration entry and headroom values in `voice.js`,
-  - any key-snapping rules for parameters that move pitch.
-  Today these are written per engine; when a third source arrives, they should become one
-  adapter object per engine so new sources don't touch the core.
+- **More sources and bodies**: experimental synths as sources, other resonating bodies, other
+  mouth anatomies or effects as bodies. The architecture is in place (§7.1); none are made yet.
 - **Moods**: per-creature ranges that drift slowly over a piece.
 - **Live nudging**: poke a creature to call, freeze the current mood. Needs the live plugin.
 - **Automated key changes** between eras.

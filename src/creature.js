@@ -1,8 +1,9 @@
 /*
  * krill · creature format
  *
- * A creature is a source engine (Throat or Dolphin), optionally through mouth-tube, plus ranges
- * for every parameter that shapes its sound, a call grammar, a signature and a manner.
+ * A creature is a source (Throat, Dolphin…) through a body (none, Mouth…), plus ranges for every
+ * parameter that shapes its sound, a call grammar, a signature, a manner and an output filter.
+ * The parts and their parameter tables live in parts.js.
  * This file owns:
  *   - the parameter table for each engine (what Krill may range, what it fixes, how values roll),
  *   - creature defaults per species,
@@ -19,107 +20,24 @@
   'use strict';
 
   const FORMAT = 'krill-creature';
-  const VERSION = 1;
+  const VERSION = 2;             // 2: `body` replaces `mouth`, tube parameters are 'tube.*', output filter
 
-  // ---------- engine parameter tables ----------
-  // use: 'range' = the creature gives it a range (locked = min equal to max)
-  //      'fixed' = Krill sets it once to `value` and never touches it again
-  //      'krill' = Krill drives it from the score (pitch, envelope, glide), not from ranges. Pitch: the
-  //                voice holds one note and moves it with Throat's Transpose + Detune or Dolphin's
-  //                bend, so contours and free-mode cents are exact
-  // scale: how a 0–1 position maps into a range: 'lin', 'log' (ratios) or 'sq' (fine near the low end)
-  // step: 1 for whole-number (menu or switch) parameters
-  // headroom: output gains Krill turns down so the engines' own ±1 output clamps never touch the
-  //           sound; the voice adds the same amount back afterwards (see voice.js)
-  const R = 'range', F = 'fixed', K = 'krill';
-  function P(id, label, min, max, def, use, opt) {
-    const o = { id, label, min, max, def, use, scale: 'lin', step: 0, unit: '', value: def };
-    if (opt) for (const k in opt) o[k] = opt[k];
-    return o;
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const PARTS = inNode ? require('./parts.js') : (root.Krill || {}).parts;
+
+  // ---------- parameter tables, from the parts ----------
+  const R = 'range';
+  const ENGINES = {};            // namespace → parameter table ('throat', 'dolphin', 'tube', …)
+  const PART_OF = {};            // namespace → part
+  for (const group of [PARTS.SOURCES, PARTS.BODIES]) for (const id in group) {
+    const part = group[id];
+    if (part.ns) { ENGINES[part.ns] = part.params; PART_OF[part.ns] = part; }
   }
-
-  const ENGINES = {
-    throat: [
-      P('voicing', 'Voicing', 0, 1, 1, R),
-      P('breathy', 'Breathy', 0, 1, 0, R),
-      P('tense', 'Tense', 0, 1, 0, R),
-      P('creaky', 'Creaky', 0, 1, 0, R),
-      P('thin', 'Thin', 0, 1, 0, R),
-      P('growl', 'Growl', 0, 1, 0, R),
-      P('jitter', 'Jitter', 0, 1, 0, R),
-      P('shimmer', 'Shimmer', 0, 1, 0, R),
-      P('source', 'Source', 0, 1, 0, R, { step: 1, options: ['Flow', 'Derivative'] }),
-      P('transpose', 'Transpose', -24, 24, 0, K),
-      P('detune', 'Detune', -100, 100, 0, K),
-      P('mode', 'Mode', 0, 1, 0, F, { value: 0 }),
-      P('glide', 'Glide', 0, 2, 0.06, K),
-      P('attack', 'Attack', 0.001, 5, 0.02, K),
-      P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
-      P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
-      P('release', 'Release', 0.001, 8, 0.25, K),
-      P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
-    ],
-    dolphin: [
-      P('rate', 'Rate', -6, 2, -2, R, { unit: 'oct' }),
-      P('keytrack', 'Key track', 0, 1, 1, R, { step: 1, options: ['Off', 'On'] }),
-      P('freerate', 'Free rate', 1, 2000, 13, R, { scale: 'log', unit: '/s' }),
-      P('sync', 'Sync', 0, 1, 0, F, { step: 1, value: 0 }),
-      P('pattern', 'Pattern', 0, 3, 0, R, { step: 1, options: ['Regular', 'Increasing', 'Decreasing', 'Grouped'] }),
-      P('coda', 'Coda', 0, 16, 0, R, { step: 1 }),
-      P('jitter', 'Jitter', 0, 1, 0.05, R),
-      P('rubato', 'Rubato', 0, 1, 0, R),
-      P('ornament', 'Ornament', 0, 1, 0, R),
-      P('clicktone', 'Click tone', -2, 2, 0, R, { unit: 'oct' }),
-      P('clickwidth', 'Click width', 0.05, 0.5, 0.1, R, { scale: 'log', unit: 'ms' }),
-      P('ring', 'Ring', 0, 1, 0, R),
-      P('vowel', 'Vowel', 0, 1, 0, R),
-      P('pitchmode', 'Pitch mode', 0, 1, 0, F, { step: 1, value: 0 }),
-      P('shape', 'Shape', 0, 5, 1, R, { step: 1, options: ['Flat', 'Up', 'Down', 'Convex', 'Concave', 'Wave'] }),
-      P('sweep', 'Sweep', -3, 3, 1.4, R, { unit: 'oct' }),
-      P('time', 'Time', 0.05, 4, 1, R, { scale: 'log', unit: 's' }),
-      P('pitch', 'Pitch', -3, 3, 0, F, { value: 0 }),
-      P('wtranspose', 'Whistle transpose', -24, 24, 0, R, { step: 1, unit: 'st' }),
-      P('harmonics', 'Harmonics', 0, 3, 1, R, { step: 1 }),
-      P('harmlevel', 'Harmonic level', -24, 0, -12, R, { unit: 'dB' }),
-      P('register', 'Register', 0, 1, 0.5, R),
-      P('biphon', 'Biphonation', 0, 1, 0, R),
-      P('spread', 'Spread', 0, 1, 0.3, F, { value: 0 }),
-      P('size', 'Size', 0, 1, 0, R),
-      P('sizemode', 'Size mode', 0, 1, 0, R, { step: 1, options: ['Octaves', 'Continuous'] }),
-      P('mode', 'Mode', 0, 1, 1, F, { step: 1, value: 0 }),
-      P('glide', 'Glide', 0, 2, 0.06, K),
-      P('transpose', 'Transpose', -24, 24, 0, F, { step: 1, value: 0 }),
-      P('detune', 'Detune', -100, 100, 0, K),
-      P('bendrange', 'Bend range', 2, 48, 12, F, { step: 1, value: 48 }),
-      P('attack', 'Attack', 0.001, 5, 0.01, K),
-      P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
-      P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
-      P('release', 'Release', 0.001, 8, 0.3, K),
-      P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
-    ],
-    mouth: [
-      P('tongueX', 'Tongue front–back', 0, 1, 0.55, R),
-      P('tongueY', 'Tongue close–open', 0, 1, 0.7, R),
-      P('tip', 'Tip', 0, 1, 0, R),
-      P('jaw', 'Jaw', 0, 1, 0.3, R),
-      P('lips', 'Lips', 0, 1, 0.6, R),
-      P('round', 'Round', 0, 1, 0, R),
-      P('nasal', 'Nasal', 0, 1, 0, R),
-      P('length', 'Length', 7, 35, 17, R, { unit: 'cm' }),
-      P('damping', 'Damping', 0, 1, 0.5, R),
-      P('spread', 'Spread', 0, 1, 0, F, { value: 0 }),
-      P('radiation', 'Radiation', 0, 1, 1, F, { value: 1 }),
-      P('mix', 'Mix', 0, 1, 1, F, { value: 1 }),
-      P('output', 'Output', -24, 12, 0, F, { value: -18, headroom: true }),
-    ],
-  };
-  // Dolphin LFOs: all four stay off (target None); Krill moves parameters itself
-  for (let i = 1; i <= 4; i++) ENGINES.dolphin.push(P('lfo' + i + 'target', 'LFO ' + i + ' target', 0, 28, 0, F, { step: 1, value: 0 }));
-
-  const BY_KEY = {};              // 'throat.breathy' → spec (with .engine and .key)
+  const BY_KEY = {};             // 'throat.breathy' → spec (with .engine and .key)
   for (const eng in ENGINES) for (const s of ENGINES[eng]) { s.engine = eng; s.key = eng + '.' + s.id; BY_KEY[s.key] = s; }
 
-  const SOURCES = ['throat', 'dolphin'];
+  const SOURCES = Object.keys(PARTS.SOURCES);
+  const BODIES = Object.keys(PARTS.BODIES);
   const EVOLVE = ['steady', 'rise', 'fall', 'arc', 'wander'];
 
   // ---------- position ↔ value ----------
@@ -167,29 +85,11 @@
     { path: 'manner.pan', kind: 'num', min: -1, max: 1, def: 0 },
     { path: 'manner.wander', kind: 'num', min: 0, max: 1, def: 0.2 },
     { path: 'manner.level', kind: 'num', min: -48, max: 6, def: -6, unit: 'dB' },
+    { path: 'filter.on', kind: 'bool', def: false },
+    { path: 'filter.cutoff', kind: 'num', min: 200, max: 20000, def: 8000, scale: 'log', unit: 'Hz' },
   ];
   const FIELD = {};
   for (const f of FIELDS) FIELD[f.path] = f;
-
-  // ---------- species defaults ----------
-  const DEFAULT_RANGES = {
-    throat: {
-      voicing: [0.85, 1], breathy: [0, 0.4], tense: [0, 0.3], creaky: [0, 0.2], thin: [0, 0.3],
-      growl: [0, 0.1], jitter: [0.05, 0.2], shimmer: [0.05, 0.2], source: [0, 0],
-    },
-    dolphin: {
-      rate: [-3, -1], keytrack: [1, 1], freerate: [13, 13], pattern: [0, 0], coda: [0, 0],
-      jitter: [0, 0.2], rubato: [0, 0.3], ornament: [0, 0], clicktone: [-0.5, 0.5], clickwidth: [0.1, 0.1],
-      ring: [0, 0.3], vowel: [0, 0.5], shape: [1, 4], sweep: [-1, 1.5], time: [0.3, 1.5],
-      wtranspose: [0, 0], harmonics: [1, 2], harmlevel: [-18, -8], register: [0.3, 0.9],
-      biphon: [0, 0.3], size: [0.2, 0.6], sizemode: [0, 0],
-    },
-    mouth: {
-      tongueX: [0.2, 0.8], tongueY: [0.3, 0.9], tip: [0, 0], jaw: [0.2, 0.6], lips: [0.4, 0.9],
-      round: [0, 0.5], nasal: [0, 0.15], length: [14, 20], damping: [0.4, 0.6],
-    },
-  };
-  const DEFAULT_PITCH = { throat: [40, 60], dolphin: [60, 84] };
 
   function getPath(o, path) {
     const parts = path.split('.');
@@ -207,28 +107,40 @@
   function clone(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
   function clampNum(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-  // a fresh creature of one species
-  function defaults(source, mouth, opts) {
-    source = SOURCES.includes(source) ? source : 'throat';
-    mouth = !!mouth;
+  // a fresh creature of one species: a source and a body ('none' for a raw source)
+  function defaults(source, body, opts) {
+    source = SOURCES.includes(source) ? source : SOURCES[0];
+    body = BODIES.includes(body) ? body : 'none';
     const c = {
       format: FORMAT, version: VERSION,
       name: (opts && opts.name) || 'Unnamed',
       seed: (opts && Number.isInteger(opts.seed)) ? opts.seed >>> 0 : 1,
-      source, mouth,
-      pitch: {}, ranges: {}, morph: 0, call: {}, signature: {}, manner: {},
+      source, body,
+      pitch: {}, ranges: {}, morph: 0, call: {}, signature: {}, manner: {}, filter: {},
     };
     for (const f of FIELDS) setPath(c, f.path, clone(f.def));
-    c.pitch.low = DEFAULT_PITCH[source][0];
-    c.pitch.high = DEFAULT_PITCH[source][1];
-    for (const id in DEFAULT_RANGES[source]) c.ranges[source + '.' + id] = DEFAULT_RANGES[source][id].slice();
-    if (mouth) for (const id in DEFAULT_RANGES.mouth) c.ranges['mouth.' + id] = DEFAULT_RANGES.mouth[id].slice();
+    const src = PARTS.SOURCES[source], bod = PARTS.BODIES[body];
+    c.pitch.low = src.pitch[0];
+    c.pitch.high = src.pitch[1];
+    for (const part of [src, bod]) for (const id in part.defaults) c.ranges[part.ns + '.' + id] = part.defaults[id].slice();
     return c;
   }
 
   // ---------- migration ----------
   // MIGRATIONS[n] turns a version n creature into version n + 1
-  const MIGRATIONS = {};
+  const MIGRATIONS = {
+    // 1 → 2: `mouth: true/false` becomes `body: 'tube' | 'none'`; 'mouth.*' ranges become 'tube.*'
+    1(o) {
+      if (o.body == null) o.body = o.mouth ? 'tube' : 'none';
+      delete o.mouth;
+      if (o.ranges && typeof o.ranges === 'object') {
+        const r = {};
+        for (const k in o.ranges) r[k.startsWith('mouth.') ? 'tube.' + k.slice(6) : k] = o.ranges[k];
+        o.ranges = r;
+      }
+      return o;
+    },
+  };
 
   // ---------- validation ----------
   // Returns { creature, warnings }. Throws only if the input is not a creature at all.
@@ -247,20 +159,20 @@
     o.format = FORMAT;
     o.version = VERSION;
 
-    if (!SOURCES.includes(o.source)) { if (o.source != null) warn.push('Unknown source "' + o.source + '", using throat'); o.source = 'throat'; }
-    o.mouth = !!o.mouth;
+    if (!SOURCES.includes(o.source)) { if (o.source != null) warn.push('Unknown source "' + o.source + '", using ' + SOURCES[0]); o.source = SOURCES[0]; }
+    if (!BODIES.includes(o.body)) { if (o.body != null) warn.push('Unknown body "' + o.body + '", using none'); o.body = 'none'; }
     if (typeof o.name !== 'string' || !o.name.trim()) { o.name = 'Unnamed'; }
     o.name = o.name.trim().slice(0, 40);
     o.seed = Number.isFinite(o.seed) ? Math.floor(Math.abs(o.seed)) >>> 0 : 1;
 
-    const base = defaults(o.source, o.mouth);
+    const base = defaults(o.source, o.body);
     for (const f of FIELDS) {
       const raw = getPath(o, f.path);
       setPath(o, f.path, fixField(f, raw, getPath(base, f.path), warn));
     }
     if (o.pitch.low > o.pitch.high) { const t = o.pitch.low; o.pitch.low = o.pitch.high; o.pitch.high = t; warn.push('pitch.low was above pitch.high; swapped'); }
 
-    // ranges: keep every entry (a mouth range survives switching the mouth off), repair the known ones
+    // ranges: keep every entry (a body's ranges survive switching to another body), repair the known ones
     const ranges = (o.ranges && typeof o.ranges === 'object' && !Array.isArray(o.ranges)) ? o.ranges : {};
     o.ranges = {};
     for (const key in ranges) {
@@ -306,8 +218,7 @@
   // the parameter specs a creature actually uses, in engine order: [{ spec, lo, hi, locked }]
   function activeParams(c) {
     const out = [];
-    const engines = c.mouth ? [c.source, 'mouth'] : [c.source];
-    for (const eng of engines) for (const s of ENGINES[eng]) {
+    for (const eng of namespaces(c)) for (const s of ENGINES[eng]) {
       if (s.use !== R) continue;
       const r = c.ranges[s.key];
       const lo = r ? r[0] : s.def, hi = r ? r[1] : s.def;
@@ -316,10 +227,24 @@
     return out;
   }
 
+  // parameter namespaces a creature uses: its source's, then its body's (if the body has any)
+  function namespaces(c) {
+    const out = [PARTS.SOURCES[c.source].ns];
+    const b = PARTS.BODIES[c.body];
+    if (b && b.ns) out.push(b.ns);
+    return out;
+  }
+  // 'throat+tube': the key for calibration and labels
+  const species = c => c.source + '+' + c.body;
+  function speciesLabel(c) {
+    const b = PARTS.BODIES[c.body];
+    return PARTS.SOURCES[c.source].label + (b && b.ns ? ' + ' + b.label : '');
+  }
+
   // ---------- files ----------
   // Stable key order; ranges listed in engine order, unknown ones after. Unknown top-level keys kept.
   function serialise(c) {
-    const order = ['format', 'version', 'name', 'seed', 'source', 'mouth', 'pitch', 'ranges', 'morph', 'call', 'signature', 'manner'];
+    const order = ['format', 'version', 'name', 'seed', 'source', 'body', 'pitch', 'ranges', 'morph', 'call', 'signature', 'manner', 'filter'];
     const out = {};
     for (const k of order) if (k in c) out[k] = c[k];
     const ranges = {};
@@ -347,7 +272,7 @@
   }
 
   const api = {
-    FORMAT, VERSION, ENGINES, BY_KEY, SOURCES, EVOLVE, FIELDS, FIELD,
+    FORMAT, VERSION, ENGINES, BY_KEY, SOURCES, BODIES, PARTS, PART_OF, EVOLVE, FIELDS, FIELD, namespaces, species, speciesLabel,
     defaults, normalise, serialise, fileName, activeParams, randomName, valueAt, positionOf,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

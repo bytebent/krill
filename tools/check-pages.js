@@ -53,10 +53,10 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
     await page.click('#call');
     await page.waitForFunction(() => /rendered/.test(document.getElementById('status').textContent), null, { timeout: 30000 });
     const view = await page.evaluate(() => document.getElementById('tubeLbl').textContent);
-    const mouth = await page.evaluate(() => window.krillPage.creature.mouth);
-    ok('example ' + n + ' calls', view === (mouth ? 'TUBE' : 'PITCH'), view);
+    const body = await page.evaluate(() => window.krillPage.creature.body);
+    ok('example ' + n + ' calls', view === (body === 'tube' ? 'TUBE' : 'PITCH'), view);
     if (SHOTS && n === 'Moanback') await page.locator('.screen').screenshot({ path: path.join(SHOTS, '05-lcd-moanback.png') });
-    if (SHOTS && n === 'Ticker') await page.locator('.mouthwrap').screenshot({ path: path.join(SHOTS, '05-mouth-ticker.png') });
+    if (SHOTS && n === 'Ticker') await page.locator('.bodywrap').screenshot({ path: path.join(SHOTS, '05-mouth-ticker.png') });
     await page.click('#status');      // closes the menu if it stayed open
   }
 
@@ -80,14 +80,21 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   const pb = await page.locator('#pad').boundingBox();
   await page.mouse.move(pb.x + pb.width * 0.3, pb.y + pb.height * 0.3);
   await page.mouse.down(); await page.mouse.move(pb.x + pb.width * 0.6, pb.y + pb.height * 0.7, { steps: 6 }); await page.mouse.up();
-  const tg = await page.evaluate(() => [window.krillPage.creature.ranges['mouth.tongueX'], window.krillPage.creature.ranges['mouth.tongueY']]);
+  const tg = await page.evaluate(() => [window.krillPage.creature.ranges['tube.tongueX'], window.krillPage.creature.ranges['tube.tongueY']]);
   ok('drawing on the vowel pad sets the tongue region', tg[0][1] > tg[0][0] && tg[1][1] > tg[1][0], JSON.stringify(tg));
 
   // species switches: dolphin and no mouth
   await page.click('#g-species .seg >> text=Dolphin');
-  await page.click('#g-species .seg >> text=Off');
-  const sp = await page.evaluate(() => ({ s: window.krillPage.creature.source, m: window.krillPage.creature.mouth, title: document.getElementById('srcTitle').textContent, dis: document.getElementById('fsMouth').disabled, note: document.getElementById('pitchNote').textContent }));
-  ok('switching species rebuilds the source panel', sp.s === 'dolphin' && !sp.m && sp.title === 'Dolphin' && sp.dis, sp.note);
+  await page.click('#g-species .seg >> text=None');
+  const sp = await page.evaluate(() => ({ s: window.krillPage.creature.source, b: window.krillPage.creature.body, title: document.getElementById('srcTitle').textContent, pad: document.getElementById('padBox').hidden, bodyRanges: document.querySelectorAll('#g-body .rng').length, note: document.getElementById('pitchNote').textContent }));
+  ok('switching source and body rebuilds their panels', sp.s === 'dolphin' && sp.b === 'none' && sp.title === 'Dolphin' && sp.pad && sp.bodyRanges === 0, sp.note);
+
+  // low-pass: on, cutoff knob by keyboard, saved with the creature
+  await page.click('#g-out .seg >> text=On');
+  await page.locator('#g-out .dial').focus();
+  for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowDown');
+  const flt = await page.evaluate(() => window.krillPage.creature.filter);
+  ok('low-pass switch and cutoff edit the creature', flt.on && flt.cutoff < 8000, JSON.stringify(flt));
 
   // Signature and free mode
   await page.selectOption('#scale', 'whole tone');
@@ -100,7 +107,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#save')]);
   const saved = fs.readFileSync(await dl.path(), 'utf8');
   const back = C.normalise(saved);
-  ok('Save downloads a valid creature file', back.warnings.length === 0 && back.creature.source === 'dolphin', dl.suggestedFilename());
+  ok('Save downloads a valid creature file', back.warnings.length === 0 && back.creature.source === 'dolphin' && back.creature.filter.on && back.creature.version === 2, dl.suggestedFilename());
 
   // Render 60 s solo: a real WAV comes down
   const t1 = Date.now();
@@ -111,14 +118,11 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   // the page remembers the creature across reloads
   await page.reload();
   await page.waitForFunction(() => window.krillPage && window.krillPage.creature);
-  ok('the creature survives a reload', await page.evaluate(() => window.krillPage.creature.source === 'dolphin' && !window.krillPage.creature.mouth));
+  ok('the creature survives a reload', await page.evaluate(() => window.krillPage.creature.source === 'dolphin' && window.krillPage.creature.body === 'none' && window.krillPage.creature.filter.on));
 
-  // phone width: no horizontal scroll
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(200);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  ok('no horizontal scroll at phone width', overflow <= 0, overflow + ' px');
-  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, '05-creature-phone.png'), fullPage: false });
+  // an old (version 1) file still loads
+  await page.evaluate(() => window.krillPage.load({ format: 'krill-creature', version: 1, name: 'Old', source: 'throat', mouth: true, ranges: { 'mouth.jaw': [0.2, 0.4] } }));
+  ok('a version 1 creature migrates on load', await page.evaluate(() => window.krillPage.creature.body === 'tube' && !document.getElementById('padBox').hidden && document.querySelectorAll('#g-body .rng').length === 9));
 
   ok('no console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close();

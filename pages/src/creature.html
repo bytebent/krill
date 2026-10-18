@@ -9,17 +9,18 @@
 .titlebar .namebox{display:flex;align-items:center;gap:6px}
 .titlebar #name{width:190px}
 .titlebar #dirty{color:var(--purple);font-weight:700}
-.mouthwrap{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;margin-top:12px}
-.mouthwrap .padbox{flex:0 0 auto;background:var(--platinum-hi);border:1px solid var(--etch);border-radius:6px;box-shadow:0 1px 0 #fff, inset 0 1px 0 #fff;padding:8px 10px 10px}
-.mouthwrap fieldset{flex:1 1 420px}
-#mouthOff{margin:6px 0 0}
+.bodywrap{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;margin-top:12px}
+.bodywrap .padbox{flex:0 0 auto;background:var(--platinum-hi);border:1px solid var(--etch);border-radius:6px;box-shadow:0 1px 0 #fff, inset 0 1px 0 #fff;padding:8px 10px 10px}
+.bodywrap .padbox[hidden]{display:none}
+#g-body{display:flex;flex-wrap:wrap;gap:12px;flex:1 1 420px}
+#g-body fieldset{flex:1 1 420px}
+#bodyOff{margin:6px 0 0}
+#g-out.off .knob{opacity:.45}
 #g-source fieldset{flex:1 1 440px}
 .callgrid{display:grid;grid-template-columns:1fr auto;gap:10px 18px;align-items:start}
 .callgrid .side{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
 #sigSeed{font:11px var(--mono);color:var(--ink-soft)}
 .keybox{display:flex;align-items:center;gap:6px}
-@media (max-width:760px){ #g-source fieldset{flex:1 1 440px}
-.callgrid{grid-template-columns:1fr} .titlebar #name{width:140px} }
 </style>
 </head>
 <body>
@@ -41,7 +42,7 @@
     <div class="screen">
       <div class="views">
         <div class="view"><canvas class="base" id="spec" aria-label="Spectrogram of the last call"></canvas><canvas id="specTop" aria-hidden="true"></canvas><span class="lbl">CALL</span></div>
-        <div class="view"><canvas class="base" id="tube" aria-label="Tube shape of the unit sounding, or the pitch of the call without a mouth"></canvas><span class="lbl" id="tubeLbl">TUBE</span></div>
+        <div class="view"><canvas class="base" id="tube" aria-label="Tube shape of the unit sounding, or the pitch of the call without a body"></canvas><span class="lbl" id="tubeLbl">TUBE</span></div>
       </div>
       <div class="readouts" id="ro" aria-live="off"></div>
     </div>
@@ -60,12 +61,12 @@
     <p class="note">Every unit rolls a value inside each range. Double-click a range to lock it to one value.</p>
     <div class="rows" id="g-source"></div>
 
-    <div class="section"><span class="dot" style="background:var(--purple)"></span>Mouth<span class="rule"></span></div>
-    <p class="note" id="mouthOff" hidden>No mouth: the source sounds as it is. Turn Mouth on under Species.</p>
-    <div class="mouthwrap">
+    <div class="section"><span class="dot" id="bodyDot"></span><span id="bodyTitle">Body</span><span class="rule"></span></div>
+    <p class="note" id="bodyOff" hidden>No body: the source sounds as it is. Choose a body under Species.</p>
+    <div class="bodywrap">
       <div class="padbox" id="padBox"><svg class="pad" id="pad"></svg>
         <span class="note">Drag to draw the tongue region; dots show the last call.</span></div>
-      <fieldset id="fsMouth"><legend><span class="dot" style="background:var(--purple)"></span>Tract</legend><div class="ranges" id="g-mouth"></div></fieldset>
+      <div id="g-body"></div>
     </div>
 
     <div class="section"><span class="dot"></span>Behaviour<span class="rule"></span></div>
@@ -85,6 +86,8 @@
       </fieldset>
       <fieldset style="flex:1 1 300px"><legend><span class="dot"></span>Manner</legend><div class="knobs" id="g-manner"></div>
         <p class="note">Talkative, Responsive and Mimicry act in a pond.</p></fieldset>
+      <fieldset style="flex:0 1 200px"><legend><span class="dot"></span>Output</legend><div class="knobs" id="g-out" style="justify-content:flex-start;gap:16px;align-items:center"></div>
+        <p class="note">Low-pass at the end of the creature, 24 dB/oct.</p></fieldset>
     </div>
 
     <div class="actions">

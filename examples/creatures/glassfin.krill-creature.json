@@ -1,10 +1,10 @@
 {
   "format": "krill-creature",
-  "version": 1,
+  "version": 2,
   "name": "Glassfin",
   "seed": 9071,
   "source": "dolphin",
-  "mouth": false,
+  "body": "none",
   "pitch": {
     "low": 40,
     "high": 60,
@@ -57,5 +57,9 @@
     "pan": -0.4,
     "wander": 0.3,
     "level": -6
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
   }
 }

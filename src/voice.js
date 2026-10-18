@@ -1,17 +1,20 @@
 /*
  * krill · one creature's voice
  *
- * Plays one slot's calls on its own engine (Throat or Dolphin), optionally through mouth-tube,
- * then pans it into the stereo mix. Everything runs in the engines' own 32-sample blocks, so the
- * sound doesn't depend on how the caller chunks the output.
+ * Plays one slot's calls: source → body → optional low-pass → pan, into the stereo mix. The
+ * source and body come from parts.js, so nothing here names an engine. Everything runs in the
+ * engines' own 32-sample blocks, so the sound doesn't depend on how the caller chunks the output.
  *
- *   pitch   the engine holds one MIDI note; Krill moves it with Throat's Transpose + Detune
- *           (±25 st) or Dolphin's bend (±48 st). When a legato line goes further, the voice
- *           re-bases onto a new held note in the same block, so the pitch stays continuous.
+ *   pitch   the source holds one MIDI note and moves it with its setOffset (Throat: Transpose +
+ *           Detune, ±25 st; Dolphin: bend, ±48 st). When a legato line goes further than the
+ *           source's reach, the voice re-bases onto a new held note in the same block, so the
+ *           pitch stays continuous.
+ *   filter  optional fixed low-pass at the end (24 dB/oct Butterworth), set per creature;
+ *           off costs nothing.
  *   params  sent only when their value changes: once at a unit's start, then per block only
  *           for units that Morph.
  *   silence a voice with nothing sounding and its tail decayed isn't processed at all
- *           (engine, tube and panning are skipped; block() returns false).
+ *           (source, body, filter and panning are skipped; block() returns false).
  *
  * Works in the browser (Krill.voice) and in Node (module.exports).
  */
@@ -21,20 +24,20 @@
   const inNode = typeof module !== 'undefined' && module.exports;
   const K = inNode ? null : (root.Krill = root.Krill || {});
   const E = inNode ? require('./engines.js') : K.engines;
+  const PARTS = inNode ? require('./parts.js') : K.parts;
   const { hash, tag } = inNode ? require('./rng.js') : K.rng;
 
   const B = E.BLOCK;
   const TAIL_PAD = 0.75;          // s after a call's release before the voice may sleep (engine + tube ring-out)
-  const THROAT_LIM = 25, DOLPHIN_LIM = 48;     // pitch offset reach before re-basing (semitones)
   const LEGATO_GLIDE = 0.08;      // s, glide into the next unit of a legato call
-  // The tube can add 20 dB or more of peak gain (clicks ringing its resonances), so it's fed this
-  // much lower and the voice adds it back afterwards. It's linear, so only headroom changes.
-  const TUBE_TRIM_DB = -24;
-  const TUBE_TRIM = Math.pow(10, TUBE_TRIM_DB / 20);
-  // Loudness calibration per species, so Level 0 means roughly the same loudness for all four
-  // (about -20 dBFS RMS while calling, for the species defaults). Measured with
-  // tools/calibrate.js; re-measure if an engine is updated.
-  const CALIBRATION_DB = { throat: 4.7, 'throat+tube': -7.4, dolphin: -0.6, 'dolphin+tube': -32.1 };
+  const BUTTER_Q = [0.5411961, 1.3065630];     // two biquads = 4th-order Butterworth low-pass
+
+  // RBJ low-pass biquad coefficients [b0, b1, b2, a1, a2] (a0 normalised)
+  function lowpass(f, q, sr) {
+    const w = 2 * Math.PI * f / sr, cs = Math.cos(w), al = Math.sin(w) / (2 * q), a0 = 1 + al;
+    const b1 = (1 - cs) / a0;
+    return [b1 / 2, b1, b1 / 2, -2 * cs / a0, (1 - al) / a0];
+  }
 
   function smooth(x) { return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); }
 
@@ -53,19 +56,16 @@
       const sr = opts.sampleRate;
       this.sr = sr;
       this.bdt = B / sr;
-      this.throat = slot.source === 'throat';
       const eseed = hash(opts.seed >>> 0, tag('engine'));
-      this.eng = this.throat ? new E.ThroatEngine(sr, eseed) : new E.DolphinEngine(sr, eseed);
-      this.tube = slot.mouth ? new E.MouthTube(sr) : null;
-      this.lim = this.throat ? THROAT_LIM : DOLPHIN_LIM;
+      const srcPart = PARTS.SOURCES[slot.source], bodyPart = PARTS.BODIES[slot.body || 'none'];
+      this.src = srcPart.create(sr, eseed);
+      this.body = bodyPart.create(sr);                 // null for no body
+      this.srcNs = srcPart.ns;
+      this.lim = this.src.reach;
 
-      // set once: Krill's fixed values, then the creature's locked ones
-      for (const f of slot.fixed) this.send(f.engine === 'mouth' ? 1 : 0, f.id, f.value);
-      for (const l of slot.locked) this.send(l.engine === 'mouth' ? 1 : 0, l.id, l.value);
-      this.send(0, 'glide', 0);
-      this.send(0, 'detune', 0);
-      if (this.throat) this.send(0, 'transpose', 0);
-      if (this.tube) this.tube.snap();
+      // set once: the creature's locked values (each part sets its own fixed ones)
+      for (const l of slot.locked) this.send(l.engine === this.srcNs ? 0 : 1, l.id, l.value);
+      if (this.body) this.body.snap();
 
       // varying parameters: where each one goes
       const V = slot.vary.length;
@@ -76,7 +76,7 @@
       this.last = new Float64Array(V).fill(NaN);
       slot.vary.forEach((key, j) => {
         const dot = key.indexOf('.');
-        this.vTube[j] = key.slice(0, dot) === 'mouth' ? 1 : 0;
+        this.vTube[j] = key.slice(0, dot) === this.srcNs ? 0 : 1;     // 0 source, 1 body
         this.vId[j] = key.slice(dot + 1);
         this.vStep[j] = slot.varyStep ? slot.varyStep[j] : 0;
       });
@@ -93,44 +93,37 @@
       this.ui = -1;              // its current unit
       this.unitOn = false;
       this.held = -1;            // MIDI note held by the engine
-      this.lastOff = NaN;
       this.awakeUntil = -1;      // block until which the voice must keep processing
 
-      // output: the creature's level, plus back what was taken off for headroom inside the engines
-      let comp = 0;
-      for (const f of slot.fixed) if (f.headroom) comp -= f.value;
-      if (this.tube) comp -= TUBE_TRIM_DB;
-      comp += CALIBRATION_DB[slot.source + (slot.mouth ? '+tube' : '')] || 0;
+      // output: the creature's level, plus what the parts took off for headroom, plus calibration
+      const comp = this.src.makeupDb + (this.body ? this.body.makeupDb : 0) + (PARTS.CALIBRATION_DB[slot.source + '+' + (slot.body || 'none')] || 0);
       this.gain = Math.pow(10, ((opts.level == null ? 0 : opts.level) + comp) / 20);
-      this.srcPeak = 0;          // largest engine/tube output sample: must stay well below 1
+      this.srcPeak = 0;          // largest source/body output sample: must stay well below 1 (their clamps)
+      // optional low-pass: coefficients once, state per stage
+      const f = slot.filter;
+      this.lp = null;
+      if (f && f.on && f.cutoff < 0.45 * sr) {
+        this.lp = BUTTER_Q.map(q => lowpass(f.cutoff, q, sr));
+        this.lpZ = new Float64Array(4);
+      }
       this.home = opts.pan || 0;
       this.wander = opts.wander || 0;
       this.width = opts.width == null ? 1 : opts.width;
       this.panSeed = hash(opts.seed >>> 0, tag('pan'));
       this.panPeriod = 6 + 24 * (1 - this.wander);
-      this.a = new Float32Array(B); this.b = new Float32Array(B);
-      this.oL = new Float32Array(B); this.oR = new Float32Array(B);
+      this.a = new Float32Array(B);
+      this.oL = new Float32Array(B);
       this.blocks = 0;           // blocks actually processed (for the bench)
     }
 
     send(target, id, v) {
-      if (target === 1) { if (this.tube) this.tube.setParam(id, v); }
-      else this.eng.setParam(id, v);
+      if (target === 1) { if (this.body) this.body.set(id, v); }
+      else this.src.set(id, v);
     }
 
-    noteOn(n) { this.eng.noteOn(n, 100); }
-    noteOff(n) { this.eng.noteOff(n); }
-
-    // pitch offset from the held note: Throat Transpose + Detune, Dolphin bend
-    setOffset(off) {
-      if (off === this.lastOff) return;
-      this.lastOff = off;
-      if (this.throat) {
-        const t = off > 24 ? 24 : off < -24 ? -24 : off;
-        this.eng.setParam('transpose', t);
-        this.eng.setParam('detune', (off - t) * 100);
-      } else this.eng.setBend(off / DOLPHIN_LIM);
-    }
+    noteOn(n) { this.src.noteOn(n); }
+    noteOff(n) { this.src.noteOff(n); }
+    setOffset(off) { this.src.setOffset(off); }
 
     // move to an absolute pitch, re-basing the held note when the offset runs out of reach
     pitch(p) {
@@ -170,7 +163,6 @@
       if (i === 0 || !call.c.legato) {
         if (this.held >= 0) this.noteOff(this.held);
         this.held = Math.round(u.note);
-        this.lastOff = NaN;
         this.setOffset(u.note - this.held);
         this.noteOn(this.held);
       }
@@ -214,20 +206,25 @@
       if (!this.cur && b >= this.awakeUntil) return false;   // asleep: nothing sounding, tail decayed
       this.blocks++;
       const a = this.a;
-      if (this.throat) this.eng.process(a, B);
-      else {
-        const r = this.b;
-        this.eng.process(a, r, B);
-        for (let i = 0; i < B; i++) a[i] = (a[i] + r[i]) * 0.5;
-      }
+      this.src.render(a, B);
       let src = a;
-      if (this.tube) {
-        for (let i = 0; i < B; i++) a[i] *= TUBE_TRIM;
-        this.tube.process(a, null, this.oL, this.oR, B); src = this.oL;
-      }
+      if (this.body) { this.body.process(a, this.oL, B); src = this.oL; }
       let pk = this.srcPeak;
       for (let i = 0; i < B; i++) { const x = src[i] < 0 ? -src[i] : src[i]; if (x > pk) pk = x; }
       this.srcPeak = pk;
+      if (this.lp) {
+        const z = this.lpZ;
+        for (let s = 0; s < 2; s++) {
+          const [b0, b1, b2, a1, a2] = this.lp[s];
+          let z1 = z[2 * s], z2 = z[2 * s + 1];
+          for (let i = 0; i < B; i++) {            // transposed direct form II
+            const x = src[i], y = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y;
+            src[i] = y;
+          }
+          z[2 * s] = z1; z[2 * s + 1] = z2;
+        }
+      }
       // pan: equal power around home, wandering slowly
       let pan = this.home;
       if (this.wander > 0) pan += this.wander * noise(this.panSeed, b * this.bdt, this.panPeriod);
@@ -240,7 +237,7 @@
     get done() { return !this.cur && this.ci >= this.calls.length; }
   }
 
-  const api = { Voice, noise, TAIL_PAD, CALIBRATION_DB, TUBE_TRIM_DB };
+  const api = { Voice, noise, TAIL_PAD, lowpass };
   if (inNode) module.exports = api;
   else K.voice = api;
 })(typeof self !== 'undefined' ? self : this);

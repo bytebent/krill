@@ -12,7 +12,7 @@ const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const js = files => files.map(f => '// ---- ' + f + '\n' + read(f)).join('\n').replace(/<\/script/gi, '<\\/script');
 
 const ENGINES = ['vendor/throat-engine.js', 'vendor/dolphin-engine.js', 'vendor/mouth-tube.js'];
-const CORE = ['src/rng.js', 'src/scales.js', 'src/creature.js', 'src/roll.js', 'src/engines.js', 'src/version.js',
+const CORE = ['src/rng.js', 'src/scales.js', 'src/parts.js', 'src/creature.js', 'src/roll.js', 'src/engines.js', 'src/version.js',
   'src/voice.js', 'src/mixer.js', 'src/wav.js', 'src/preview.js'];
 
 function examples() {
@@ -24,7 +24,7 @@ function examples() {
 
 function buildCreature() {
   const worker = js(ENGINES.concat(CORE, ['pages/src/worker.js']));
-  const main = examples() + js(['vendor/mouth-tube.js', 'src/rng.js', 'src/scales.js', 'src/creature.js', 'pages/src/kit.js', 'pages/src/creature-page.js']);
+  const main = examples() + js(['vendor/mouth-tube.js', 'src/rng.js', 'src/scales.js', 'src/parts.js', 'src/creature.js', 'pages/src/kit.js', 'pages/src/creature-page.js']);
   return read('pages/src/creature.html')
     .replace('/*KIT_CSS*/', () => read('pages/src/kit.css'))
     .replace('/*WORKER*/', () => worker)

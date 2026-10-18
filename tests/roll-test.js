@@ -86,10 +86,10 @@ test('in key: dolphin pulse pitch and whistle transpose land on the scale', () =
   let pitched = 0;
   eachUnit(R.soloScore(c, { seed: 4, seconds: 1800, pitch: DMIN }), (u) => {
     const cc = R.compile(c, DMIN);
-    const r = u.v0[cc.iRate], wt = u.v0[cc.iWt];
+    const r = u.v0[cc.vKey.indexOf('dolphin.rate')], wt = u.v0[cc.vKey.indexOf('dolphin.wtranspose')];
     if (R.mtof(u.note) * Math.pow(2, r) > 30) { pitched++; assert.ok(DMIN.inScale(Math.round((u.note + 12 * r) * 1e3) / 1e3), 'pulse ' + u.note + ' ' + r); }   // rates are float32
     assert.ok(DMIN.inScale(u.note + wt), 'whistle ' + u.note + ' ' + wt);
-    const sw = u.v0[cc.iSweep];
+    const sw = u.v0[cc.vKey.indexOf('dolphin.sweep')];
     assert.ok(DMIN.inScale(Math.round((u.note + wt + 12 * sw) * 1e3) / 1e3), 'sweep end ' + sw);
   });
   assert.ok(pitched > 50);
@@ -108,8 +108,8 @@ test('locked parameters are never rolled; snapping only adds what it can change'
   assert.ok(R.compile(sz, DMIN).locked.some(l => l.key === 'dolphin.sizemode' && l.value === 0), 'size in octaves in key');
   assert.ok(R.compile(sz, FREE).vKey.includes('dolphin.sizemode'), 'free mode keeps continuous size');
   const w = R.compile(byName('Wicklace'), DMIN);
-  assert.ok(!w.vKey.some(k => k.startsWith('mouth.')), 'no mouth, no mouth parameters');
-  assert.ok(!w.fixed.some(k => k.engine === 'mouth'));
+  assert.ok(!w.vKey.some(k => k.startsWith('tube.')), 'no body, no body parameters');
+  assert.ok(!w.fixed.some(k => k.engine === 'tube'));
 });
 
 test('Morph 0 shares one value array; Morph 1 moves most units', () => {
@@ -172,7 +172,7 @@ test('copying across species keeps the gesture in the copier\'s own voice', () =
     assert.ok(u.note >= dolphin.low && u.note <= dolphin.high, 'in the copier\'s pitch range');
   });
   // shared mouth parameters copy exactly
-  const jT = throat.vKey.indexOf('mouth.lips'), jD = dolphin.vKey.indexOf('mouth.lips');
+  const jT = throat.vKey.indexOf('tube.lips'), jD = dolphin.vKey.indexOf('tube.lips');
   assert.ok(jT >= 0 && jD >= 0);
   assert.ok(Math.abs(C.positionOf('lin', dolphin.vLo[jD], dolphin.vHi[jD], call.units[0].v0[jD]) - m.units[0].p0[jT]) < 1e-5);
 });

@@ -1,10 +1,10 @@
 {
   "format": "krill-creature",
-  "version": 1,
+  "version": 2,
   "name": "Wicklace",
   "seed": 50,
   "source": "throat",
-  "mouth": false,
+  "body": "none",
   "pitch": {
     "low": 70,
     "high": 96,
@@ -44,5 +44,9 @@
     "pan": -0.7,
     "wander": 0.5,
     "level": -5
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
   }
 }

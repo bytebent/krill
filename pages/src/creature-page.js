@@ -5,49 +5,29 @@
  * renders until Call, Signature or Render. Renders run in a worker so the page stays responsive.
  * Efficiency: the LCD's spectrogram and tube are drawn only when a call arrives or the window
  * resizes; while a call plays, only the playhead layer and the tube redraw (one rAF loop that
- * stops with the sound). The Mouth panel isn't updated while the creature has no mouth.
+ * stops with the sound). Source and body panels are built from parts.js, so a new part shows up
+ * here without page changes; the body panel isn't updated while the creature has no body.
  */
 (function () {
   'use strict';
-  const K = window.Krill, C = K.creature, S = K.scales, kit = K.kit, el = kit.el;
+  const K = window.Krill, C = K.creature, S = K.scales, kit = K.kit, el = kit.el, PARTS = K.parts;
   const { Rng } = K.rng;
   const SR = 48000;
   const STORE = 'krill.creature.v1', STORE_PITCH = 'krill.previewPitch.v1';
-  const COL = { throat: 'var(--red)', throat2: 'var(--blue)', dolphin: 'var(--blue)', mouth: 'var(--purple)', krill: 'var(--graphite)' };
-
-  const GROUPS = {
-    throat: [
-      { name: 'Voice', ids: ['voicing', 'breathy', 'tense', 'creaky', 'thin', 'growl'], c: COL.throat },
-      { name: 'Irregularity', ids: ['jitter', 'shimmer'], c: COL.throat2 },
-      { name: 'Pulse shape', ids: ['source'], c: COL.throat2 },
-    ],
-    dolphin: [
-      { name: 'Pulses', ids: ['rate', 'keytrack', 'freerate', 'pattern', 'coda', 'jitter', 'rubato', 'ornament'], c: COL.dolphin },
-      { name: 'Clicks', ids: ['clicktone', 'clickwidth', 'ring', 'vowel'], c: COL.dolphin },
-      { name: 'Whistle', ids: ['shape', 'sweep', 'time', 'wtranspose', 'harmonics', 'harmlevel'], c: COL.dolphin },
-      { name: 'Blend', ids: ['register', 'biphon', 'size', 'sizemode'], c: COL.dolphin },
-    ],
-  };
-  const TITLES = {
-    'dolphin.rate': 'Pulse rate in octaves from the note (when Key track is on)',
-    'dolphin.freerate': 'Pulse rate in pulses per second (when Key track is off)',
-    'dolphin.register': '0% pulses only … 100% whistle only',
-    'dolphin.size': 'Small sounds higher: the whistle sits up to 4 octaves above the note',
-    'throat.voicing': '0% breath only … 100% fully voiced',
-  };
+  const COL = { krill: 'var(--graphite)' };
 
   // ---------- state ----------
-  let creature = C.defaults('dolphin', false), dirty = false;   // replaced at start-up by the saved or first example creature
+  let creature = C.defaults('dolphin', 'none'), dirty = false;   // replaced at start-up by the saved or first example creature
   let previewPitch = { mode: 'key', root: 'D', scale: 'minor' };
   let seed = 1;                               // preview seed: each Call takes the next one
   const controls = [];                        // { show } for refreshAll
-  let sourceControls = [], mouthControls = [], pad = null;
+  let sourceControls = [], bodyControls = [], pad = null;
 
   function load(c) {
     const r = C.normalise(c);
     creature = r.creature;
     dirty = false;
-    buildSource();
+    buildSource(); buildBody();
     refreshAll();
     save();
     return r.warnings;
@@ -66,26 +46,25 @@
   function randomSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return (Math.random() * 4294967296) >>> 0; } }
   function showMark() {
     const m = document.getElementById('mark'); m.textContent = '';
-    const cols = creature.source === 'throat' ? ['var(--red)', 'var(--blue)'] : ['var(--blue)'];
-    if (creature.mouth) cols.push('var(--purple)');
+    const cols = PARTS.SOURCES[creature.source].colors.concat(PARTS.BODIES[creature.body].colors);
     for (const c of cols) { const i = el('i'); i.style.background = c; m.appendChild(i); }
   }
 
   // ---------- species and pitch ----------
   const gSpecies = document.getElementById('g-species');
   controls.push(kit.Seg(gSpecies, {
-    label: 'Source', options: [['throat', 'Throat'], ['dolphin', 'Dolphin']],
+    label: 'Source', options: C.SOURCES.map(id => [id, PARTS.SOURCES[id].label]),
     get: () => creature.source,
     set: v => { creature.source = v; fillDefaults(); buildSource(); refreshAll(); changed(); },
   }));
   controls.push(kit.Seg(gSpecies, {
-    label: 'Mouth', options: [[true, 'On'], [false, 'Off']],
-    get: () => creature.mouth,
-    set: v => { creature.mouth = v; fillDefaults(); refreshAll(); changed(); },
+    label: 'Body', options: C.BODIES.map(id => [id, PARTS.BODIES[id].label]),
+    get: () => creature.body,
+    set: v => { creature.body = v; fillDefaults(); buildBody(); refreshAll(); changed(); },
   }));
-  // a newly chosen engine starts from the species defaults for any range the creature doesn't have
+  // a newly chosen part starts from its defaults for any range the creature doesn't have yet
   function fillDefaults() {
-    const d = C.defaults(creature.source, true);
+    const d = C.defaults(creature.source, creature.body);
     for (const k in d.ranges) if (!creature.ranges[k]) creature.ranges[k] = d.ranges[k];
   }
   const gPitch = document.getElementById('g-pitch');
@@ -102,13 +81,8 @@
   }));
   const pitchNote = document.getElementById('pitchNote');
   function showPitchNote() {
-    if (creature.source !== 'dolphin') { pitchNote.textContent = 'Throat sings the notes as they are.'; return; }
-    const sz = R('dolphin.size'), sm = R('dolphin.sizemode');
-    const k1 = Math.round(4 * (1 - sz[1])), k2 = Math.round(4 * (1 - sz[0]));
-    const lo = creature.pitch.low + 12 * k1, hi = creature.pitch.high + 12 * k2;
-    const oct = k1 === k2 ? '+' + k1 : '+' + k1 + ' to +' + k2;
-    pitchNote.textContent = 'Dolphin: pulses follow the notes; the whistle sounds ' + oct + ' octaves higher (' +
-      S.noteName(lo) + '–' + S.noteName(Math.min(127, hi)) + ')' + (sm[1] >= 0.5 && previewPitch.mode !== 'key' ? ', or anywhere between with continuous Size.' : '.');
+    const src = PARTS.SOURCES[creature.source];
+    pitchNote.textContent = src.pitchInfo ? src.pitchInfo(creature, R, n => S.noteName(n)) : (src.pitchNote || '');
   }
 
   // ---------- source ranges (rebuilt when the source changes) ----------
@@ -116,51 +90,50 @@
   function buildSource() {
     gSource.textContent = '';
     sourceControls = [];
-    const src = creature.source;
-    document.getElementById('srcTitle').textContent = src === 'throat' ? 'Throat' : 'Dolphin';
-    document.getElementById('srcDot').style.background = src === 'throat' ? 'var(--red)' : 'var(--blue)';
-    for (const g of GROUPS[src]) {
+    const part = PARTS.SOURCES[creature.source];
+    document.getElementById('srcTitle').textContent = part.label;
+    document.getElementById('srcDot').style.background = part.colors[0];
+    groupsInto(gSource, part, sourceControls);
+  }
+  function groupsInto(host, part, list) {
+    for (const g of part.groups) {
       const fs = el('fieldset'), lg = el('legend'), dot = el('span', 'dot');
       dot.style.background = g.c; lg.append(dot, document.createTextNode(g.name)); fs.appendChild(lg);
       const box = el('div', 'ranges'); fs.appendChild(box);
-      for (const id of g.ids) sourceControls.push(rangeFor(box, src + '.' + id, g.c));
-      gSource.appendChild(fs);
+      for (const id of g.ids) list.push(rangeFor(box, part.ns + '.' + id, g.c));
+      host.appendChild(fs);
     }
   }
   function rangeFor(host, key, c) {
     const s = C.BY_KEY[key];
     return kit.Range(host, {
       name: s.label, min: s.min, max: s.max, scale: s.scale, step: s.step, options: s.options, unit: s.unit, c,
-      round: s.step ? 0 : (s.max - s.min) / 1000, title: TITLES[key],
+      round: s.step ? 0 : (s.max - s.min) / 1000, title: s.title,
       get: () => R(key),
       set: v => {
         creature.ranges[key] = v;
-        if (key.startsWith('dolphin.size')) showPitchNote();
-        if (key === 'mouth.tongueX' || key === 'mouth.tongueY') pad.show();
+        showPitchNote();
+        if (pad && (key === 'tube.tongueX' || key === 'tube.tongueY')) pad.show();
         changed();
       },
     });
   }
 
-  // ---------- mouth ----------
-  const mouthFs = document.getElementById('fsMouth'), mouthPadBox = document.getElementById('padBox');
+  // ---------- body (rebuilt when the body changes) ----------
+  const gBody = document.getElementById('g-body'), padBox = document.getElementById('padBox');
   pad = kit.Pad(document.getElementById('pad'), {
-    get: () => ({ x: R('mouth.tongueX'), y: R('mouth.tongueY') }),
-    set: (x, y) => { creature.ranges['mouth.tongueX'] = x; creature.ranges['mouth.tongueY'] = y; for (const m of mouthControls.slice(0, 2)) m.show(); changed(); },
+    get: () => ({ x: R('tube.tongueX'), y: R('tube.tongueY') }),
+    set: (x, y) => { creature.ranges['tube.tongueX'] = x; creature.ranges['tube.tongueY'] = y; for (const m of bodyControls) m.show(); changed(); },
   });
-  {
-    const box = document.getElementById('g-mouth');
-    for (const id of ['tongueX', 'tongueY', 'tip', 'jaw', 'lips', 'round', 'nasal', 'length', 'damping']) {
-      const r = rangeFor(box, 'mouth.' + id, COL.mouth);
-      mouthControls.push(r);
-    }
-  }
-  function showMouthEnabled() {
-    const on = creature.mouth;
-    mouthFs.disabled = !on;
-    mouthPadBox.style.opacity = on ? '' : '.45';
-    mouthPadBox.style.pointerEvents = on ? '' : 'none';
-    document.getElementById('mouthOff').hidden = on;
+  function buildBody() {
+    gBody.textContent = '';
+    bodyControls = [];
+    const part = PARTS.BODIES[creature.body];
+    document.getElementById('bodyTitle').textContent = part.ns ? part.label : 'Body';
+    document.getElementById('bodyDot').style.background = part.colors[0] || 'var(--graphite)';
+    groupsInto(gBody, part, bodyControls);
+    padBox.hidden = part.view !== 'tube';                  // the vowel pad belongs to the tube
+    document.getElementById('bodyOff').hidden = !!part.ns;
   }
 
   // ---------- call, signature, manner ----------
@@ -198,7 +171,14 @@
     knob2(mk, 'manner.pan', 'Pan', { fmt: v => Math.abs(v) < 0.005 ? 'C' : (v < 0 ? 'L ' : 'R ') + Math.round(Math.abs(v) * 100) });
     knob2(mk, 'manner.wander', 'Wander', { title: 'How far it drifts around its pan position' });
     knob2(mk, 'manner.level', 'Level', { fmt: v => (+v.toFixed(1)) + ' dB', title: 'Calibrated: 0 dB is about -20 dBFS RMS while calling, for every species' });
+    const ok = document.getElementById('g-out');
+    controls.push(kit.Seg(ok, { label: 'Low-pass', options: [[false, 'Off'], [true, 'On']], get: path('filter.on').get, set: v => { creature.filter.on = v; showFilter(); changed(); } }));
+    const f = F['filter.cutoff'];
+    controls.push(kit.Knob(ok, { name: 'Cutoff', min: f.min, max: f.max, def: f.def, scale: 'log', c: COL.krill,
+      fmt: v => v >= 1000 ? (+(v / 1000).toFixed(1)) + ' kHz' : Math.round(v) + ' Hz', title: '24 dB/oct, at the end of the creature: tames noise and loud highs',
+      get: path('filter.cutoff').get, set: v => { creature.filter.cutoff = Math.round(v); changed(); } }));
   }
+  function showFilter() { document.getElementById('g-out').classList.toggle('off', !creature.filter.on); }
   document.getElementById('sigRoll').addEventListener('click', () => { creature.seed = randomSeed(); changed(); showSeed(); run('signature'); });
   const showSeed = () => { document.getElementById('sigSeed').textContent = 'Seed ' + creature.seed; };
 
@@ -206,8 +186,9 @@
     showName(); showMark();
     for (const c of controls) c.show();
     for (const c of sourceControls) c.show();
-    if (creature.mouth) { for (const c of mouthControls) c.show(); pad.show(); }
-    showMouthEnabled(); showPitchNote(); showSeed();
+    for (const c of bodyControls) c.show();
+    if (PARTS.BODIES[creature.body].view === 'tube') pad.show();
+    showPitchNote(); showSeed(); showFilter();
   }
 
   // ---------- preview key ----------
@@ -343,7 +324,7 @@
   const exMenu = document.getElementById('exMenu');
   for (const ex of (window.KRILL_EXAMPLES || [])) {
     const b = el('button', 'it'); b.type = 'button';
-    b.append(document.createTextNode(ex.name), el('small', null, ex.source + (ex.mouth ? ' + tube' : '')));
+    b.append(document.createTextNode(ex.name), el('small', null, C.speciesLabel(C.normalise(ex).creature)));
     b.addEventListener('click', () => { exMenu.hidden = true; load(ex); dirty = false; showName(); setStatus('Example ' + ex.name + ' loaded'); });
     exMenu.appendChild(b);
   }
@@ -351,8 +332,8 @@
   document.addEventListener('click', e => { if (!exMenu.contains(e.target)) exMenu.hidden = true; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') exMenu.hidden = true; });
   document.getElementById('new').addEventListener('click', () => {
-    const c = C.defaults(creature.source, creature.mouth, { name: C.randomName(new Rng(randomSeed())), seed: randomSeed() % 100000 });
-    load(c); dirty = true; showName(); setStatus('New ' + creature.source + (creature.mouth ? ' + tube' : '') + ' creature');
+    const c = C.defaults(creature.source, creature.body, { name: C.randomName(new Rng(randomSeed())), seed: randomSeed() % 100000 });
+    load(c); dirty = true; showName(); setStatus('New ' + C.speciesLabel(creature) + ' creature');
   });
   // space bar plays a call when no control has focus
   document.addEventListener('keydown', e => {
@@ -439,14 +420,14 @@
   function drawTube(t) {
     const lbl = document.getElementById('tubeLbl');
     const g = fit(tubeC), W = tubeC.width, H = tubeC.height, d = window.devicePixelRatio || 1;
-    if (!last) { g.fillStyle = '#060608'; g.fillRect(0, 0, W, H); lbl.textContent = creature.mouth ? 'TUBE' : 'PITCH'; return; }
+    if (!last) { g.fillStyle = '#060608'; g.fillRect(0, 0, W, H); lbl.textContent = PARTS.BODIES[creature.body].view === 'tube' ? 'TUBE' : 'PITCH'; return; }
     const { u, i, f } = unitAt(t < 0 ? 0 : t);
-    if (!last.call.units[0].mouth) { drawPitch(g, W, H, d, t); lbl.textContent = 'PITCH'; return; }
-    const key = i + ':' + (u.mouth.start === u.mouth.end ? 0 : Math.round(f * 60)) + ':' + W;
+    if (last.call.bodyView !== 'tube') { drawPitch(g, W, H, d, t); lbl.textContent = 'PITCH'; return; }
+    const key = i + ':' + Math.round(f * 60) + ':' + W;
     if (key === tubeKey) return;                 // nothing changed since the last frame
     tubeKey = key;
     lbl.textContent = 'TUBE';
-    const a = u.mouth.start, b = u.mouth.end, s = {};
+    const a = u.body.start, b = u.body.end, s = {};
     for (const k in a) s[k] = a[k] + (b[k] - a[k]) * f;
     s.spread = 0;
     const nasal = window.MouthTube.shape(s, dBuf, 0);
@@ -465,7 +446,7 @@
     g.fillText('LIPS', x1 - 26 * d, H - 8 * d);
     g.fillText(s.length.toFixed(1) + ' CM · UNIT ' + (i + 1) + '/' + last.call.units.length, x0 + 70 * d, H - 8 * d);
     // tongue positions of every unit on the pad
-    if (creature.mouth && t < 0) pad.showPoints(last.call.units.map(v => ({ x: v.mouth.start.tongueX, y: v.mouth.start.tongueY })));
+    if (t < 0 && PARTS.BODIES[creature.body].view === 'tube') pad.showPoints(last.call.units.map(v => ({ x: v.body.start.tongueX, y: v.body.start.tongueY })));
   }
   function drawPitch(g, W, H, d, t) {
     const key = 'p:' + W + ':' + (t < 0 ? -1 : Math.round(t * 30));
@@ -486,7 +467,7 @@
     if (t >= 0) { g.fillStyle = '#fff'; g.fillRect(x(t), 0, 2, H); }
     g.fillStyle = '#8f8'; g.font = (9.5 * d) + 'px Monaco, monospace';
     g.fillText(S.noteName(hi - 2) + ' ', 12 * d, 14 * d); g.fillText(S.noteName(lo + 2), 12 * d, H - 8 * d);
-    g.fillText('NO MOUTH · SOURCE PITCH', 60 * d, H - 8 * d);
+    g.fillText('SOURCE PITCH', 60 * d, H - 8 * d);
   }
   function showReadouts() {
     const ro = document.getElementById('ro'); ro.textContent = '';
@@ -506,8 +487,8 @@
   // ---------- start ----------
   let start = null;
   try { start = JSON.parse(localStorage.getItem(STORE)); } catch (e) { start = null; }
-  if (!start) start = (window.KRILL_EXAMPLES || [])[0] || C.defaults('dolphin', false, { name: 'Unnamed' });
-  try { load(start); } catch (e) { load(C.defaults('throat', false)); }
+  if (!start) start = (window.KRILL_EXAMPLES || [])[0] || C.defaults('dolphin', 'none', { name: 'Unnamed' });
+  try { load(start); } catch (e) { load(C.defaults('throat', 'none')); }
   dirty = false; showName();
   drawSpec(); drawTube(-1);
   window.krillPage = { get creature() { return creature; }, load, run, get last() { return last; } };   // for tests

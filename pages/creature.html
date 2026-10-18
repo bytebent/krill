@@ -15,7 +15,7 @@
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:radial-gradient(circle at 1px 1px, rgba(0,0,0,.09) 1px, transparent 1.5px) 0 0/6px 6px, var(--desk);
-  font:13px/1.45 var(--ui); color:var(--ink); padding:20px 16px 0; min-height:100vh}
+  font:13px/1.45 var(--ui); color:var(--ink); padding:20px 16px 0; min-height:100vh; min-width:960px}   /* desktop only */
 button,input,select{font-family:var(--ui)}
 .window{max-width:1040px;margin:0 auto;border:1px solid #7d7d86;border-radius:9px;overflow:clip;
   background:repeating-linear-gradient(0deg, rgba(255,255,255,.55) 0 1px, rgba(255,255,255,0) 1px 2px, rgba(0,0,0,.035) 2px 3px, rgba(0,0,0,0) 3px 4px), var(--platinum);
@@ -129,30 +129,23 @@ select.field{padding:0 4px}
 .progress i{display:block;height:100%;width:0;background:var(--blue)}
 .dropping .window{box-shadow:0 0 0 3px var(--blue), 0 12px 32px rgba(0,0,0,.22)}
 
-@media (max-width:760px){
-  .views{grid-template-columns:1fr}
-  .rng{grid-template-columns:90px 1fr 92px;gap:6px}
-  .pad{width:240px}
-  body{padding:10px 8px 0}
-  .body{padding:12px}
-  .actions{margin:16px -12px -12px;padding:8px 12px}
-}
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
 
 .titlebar .namebox{display:flex;align-items:center;gap:6px}
 .titlebar #name{width:190px}
 .titlebar #dirty{color:var(--purple);font-weight:700}
-.mouthwrap{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;margin-top:12px}
-.mouthwrap .padbox{flex:0 0 auto;background:var(--platinum-hi);border:1px solid var(--etch);border-radius:6px;box-shadow:0 1px 0 #fff, inset 0 1px 0 #fff;padding:8px 10px 10px}
-.mouthwrap fieldset{flex:1 1 420px}
-#mouthOff{margin:6px 0 0}
+.bodywrap{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;margin-top:12px}
+.bodywrap .padbox{flex:0 0 auto;background:var(--platinum-hi);border:1px solid var(--etch);border-radius:6px;box-shadow:0 1px 0 #fff, inset 0 1px 0 #fff;padding:8px 10px 10px}
+.bodywrap .padbox[hidden]{display:none}
+#g-body{display:flex;flex-wrap:wrap;gap:12px;flex:1 1 420px}
+#g-body fieldset{flex:1 1 420px}
+#bodyOff{margin:6px 0 0}
+#g-out.off .knob{opacity:.45}
 #g-source fieldset{flex:1 1 440px}
 .callgrid{display:grid;grid-template-columns:1fr auto;gap:10px 18px;align-items:start}
 .callgrid .side{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
 #sigSeed{font:11px var(--mono);color:var(--ink-soft)}
 .keybox{display:flex;align-items:center;gap:6px}
-@media (max-width:760px){ #g-source fieldset{flex:1 1 440px}
-.callgrid{grid-template-columns:1fr} .titlebar #name{width:140px} }
 </style>
 </head>
 <body>
@@ -174,7 +167,7 @@ select.field{padding:0 4px}
     <div class="screen">
       <div class="views">
         <div class="view"><canvas class="base" id="spec" aria-label="Spectrogram of the last call"></canvas><canvas id="specTop" aria-hidden="true"></canvas><span class="lbl">CALL</span></div>
-        <div class="view"><canvas class="base" id="tube" aria-label="Tube shape of the unit sounding, or the pitch of the call without a mouth"></canvas><span class="lbl" id="tubeLbl">TUBE</span></div>
+        <div class="view"><canvas class="base" id="tube" aria-label="Tube shape of the unit sounding, or the pitch of the call without a body"></canvas><span class="lbl" id="tubeLbl">TUBE</span></div>
       </div>
       <div class="readouts" id="ro" aria-live="off"></div>
     </div>
@@ -193,12 +186,12 @@ select.field{padding:0 4px}
     <p class="note">Every unit rolls a value inside each range. Double-click a range to lock it to one value.</p>
     <div class="rows" id="g-source"></div>
 
-    <div class="section"><span class="dot" style="background:var(--purple)"></span>Mouth<span class="rule"></span></div>
-    <p class="note" id="mouthOff" hidden>No mouth: the source sounds as it is. Turn Mouth on under Species.</p>
-    <div class="mouthwrap">
+    <div class="section"><span class="dot" id="bodyDot"></span><span id="bodyTitle">Body</span><span class="rule"></span></div>
+    <p class="note" id="bodyOff" hidden>No body: the source sounds as it is. Choose a body under Species.</p>
+    <div class="bodywrap">
       <div class="padbox" id="padBox"><svg class="pad" id="pad"></svg>
         <span class="note">Drag to draw the tongue region; dots show the last call.</span></div>
-      <fieldset id="fsMouth"><legend><span class="dot" style="background:var(--purple)"></span>Tract</legend><div class="ranges" id="g-mouth"></div></fieldset>
+      <div id="g-body"></div>
     </div>
 
     <div class="section"><span class="dot"></span>Behaviour<span class="rule"></span></div>
@@ -218,6 +211,8 @@ select.field{padding:0 4px}
       </fieldset>
       <fieldset style="flex:1 1 300px"><legend><span class="dot"></span>Manner</legend><div class="knobs" id="g-manner"></div>
         <p class="note">Talkative, Responsive and Mimicry act in a pond.</p></fieldset>
+      <fieldset style="flex:0 1 200px"><legend><span class="dot"></span>Output</legend><div class="knobs" id="g-out" style="justify-content:flex-start;gap:16px;align-items:center"></div>
+        <p class="note">Low-pass at the end of the creature, 24 dB/oct.</p></fieldset>
     </div>
 
     <div class="actions">
@@ -2219,12 +2214,314 @@ select.field{padding:0 4px}
   else (root.Krill = root.Krill || {}).scales = api;
 })(typeof self !== 'undefined' ? self : this);
 
+// ---- src/parts.js
+/*
+ * krill · parts: the sources and bodies a creature can be built from
+ *
+ * A creature is one SOURCE (makes the sound) through one BODY (shapes it; 'none' = raw source).
+ * Everything krill knows about a particular engine lives in its entry here, so a new synth or
+ * a new resonating body is one more entry; nothing else in krill names an engine.
+ *
+ * Every part has:
+ *   id, label, ns          ns = namespace of its parameters in creature files ('throat.breathy')
+ *   params                 the engine's parameter table (see P below)
+ *   defaults               species-default ranges { id: [lo, hi] }
+ *   groups, colors         how the creature page lays it out and colours it
+ *   create(sr, seed)       an instance with krill's uniform interface (below)
+ * Sources also have:
+ *   pitch                  default note range [low, high]
+ *   keySnap (optional)     rules for parameters that move pitch, applied in key mode
+ * A source instance:  set(id, v) · noteOn(n) · noteOff(n) · setOffset(semitones) · render(out, n)
+ *                     (mono, 32-sample blocks) · reach (how far setOffset can move, semitones)
+ *                     · makeupDb (gain the voice adds back after the engine's headroom)
+ * A body instance:    set(id, v) · snap() · process(inp, out, n) (may overwrite inp) · makeupDb
+ * Loudness calibration per source + body combination is in CALIBRATION_DB (tools/calibrate.js).
+ *
+ * Param fields:
+ *   use    'range' = the creature gives it a range (locked = min equal to max)
+ *          'fixed' = krill sets it once to `value` and never touches it again
+ *          'krill' = krill drives it from the score (pitch, envelope, glide), not from ranges
+ *   scale  how a 0–1 position maps into a range: 'lin', 'log' (ratios) or 'sq' (fine near the low end)
+ *   step   1 for whole-number (menu or switch) parameters
+ *   headroom  an output gain krill turns down so the engine's own ±1 clamp never touches the
+ *          sound; the part's makeupDb adds it back
+ *
+ * Works in the browser (Krill.parts) and in Node (module.exports). Engines are only needed
+ * when create() is called, so pages can load this file without them.
+ */
+(function (root) {
+  'use strict';
+
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const K = inNode ? null : (root.Krill = root.Krill || {});
+  const engines = () => inNode ? require('./engines.js') : K.engines;
+
+  const R = 'range', F = 'fixed', KR = 'krill';
+  function P(id, label, min, max, def, use, opt) {
+    const o = { id, label, min, max, def, use, scale: 'lin', step: 0, unit: '', value: def };
+    if (opt) for (const k in opt) o[k] = opt[k];
+    return o;
+  }
+  const db2lin = d => Math.pow(10, d / 20);
+  const clamp = (x, lo, hi) => x < lo ? lo : x > hi ? hi : x;
+  const fixedOf = params => params.filter(p => p.use === F);
+  const headroomOf = params => params.filter(p => p.headroom).reduce((a, p) => a - p.value, 0);
+
+  // ---------------- sources ----------------
+
+  const THROAT = [
+    P('voicing', 'Voicing', 0, 1, 1, R, { title: '0% breath only … 100% fully voiced' }),
+    P('breathy', 'Breathy', 0, 1, 0, R),
+    P('tense', 'Tense', 0, 1, 0, R),
+    P('creaky', 'Creaky', 0, 1, 0, R),
+    P('thin', 'Thin', 0, 1, 0, R),
+    P('growl', 'Growl', 0, 1, 0, R),
+    P('jitter', 'Jitter', 0, 1, 0, R),
+    P('shimmer', 'Shimmer', 0, 1, 0, R),
+    P('source', 'Source', 0, 1, 0, R, { step: 1, options: ['Flow', 'Derivative'] }),
+    P('transpose', 'Transpose', -24, 24, 0, KR),
+    P('detune', 'Detune', -100, 100, 0, KR),
+    P('mode', 'Mode', 0, 1, 0, F, { value: 0 }),
+    P('glide', 'Glide', 0, 2, 0.06, KR),
+    P('attack', 'Attack', 0.001, 5, 0.02, KR),
+    P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
+    P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
+    P('release', 'Release', 0.001, 8, 0.25, KR),
+    P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
+  ];
+
+  const DOLPHIN = [
+    P('rate', 'Rate', -6, 2, -2, R, { unit: 'oct', title: 'Pulse rate in octaves from the note (when Key track is on)' }),
+    P('keytrack', 'Key track', 0, 1, 1, R, { step: 1, options: ['Off', 'On'] }),
+    P('freerate', 'Free rate', 1, 2000, 13, R, { scale: 'log', unit: '/s', title: 'Pulse rate in pulses per second (when Key track is off)' }),
+    P('sync', 'Sync', 0, 1, 0, F, { step: 1, value: 0 }),
+    P('pattern', 'Pattern', 0, 3, 0, R, { step: 1, options: ['Regular', 'Increasing', 'Decreasing', 'Grouped'] }),
+    P('coda', 'Coda', 0, 16, 0, R, { step: 1 }),
+    P('jitter', 'Jitter', 0, 1, 0.05, R),
+    P('rubato', 'Rubato', 0, 1, 0, R),
+    P('ornament', 'Ornament', 0, 1, 0, R),
+    P('clicktone', 'Click tone', -2, 2, 0, R, { unit: 'oct' }),
+    P('clickwidth', 'Click width', 0.05, 0.5, 0.1, R, { scale: 'log', unit: 'ms' }),
+    P('ring', 'Ring', 0, 1, 0, R),
+    P('vowel', 'Vowel', 0, 1, 0, R),
+    P('pitchmode', 'Pitch mode', 0, 1, 0, F, { step: 1, value: 0 }),
+    P('shape', 'Shape', 0, 5, 1, R, { step: 1, options: ['Flat', 'Up', 'Down', 'Convex', 'Concave', 'Wave'] }),
+    P('sweep', 'Sweep', -3, 3, 1.4, R, { unit: 'oct' }),
+    P('time', 'Time', 0.05, 4, 1, R, { scale: 'log', unit: 's' }),
+    P('pitch', 'Pitch', -3, 3, 0, F, { value: 0 }),
+    P('wtranspose', 'Whistle transpose', -24, 24, 0, R, { step: 1, unit: 'st' }),
+    P('harmonics', 'Harmonics', 0, 3, 1, R, { step: 1 }),
+    P('harmlevel', 'Harmonic level', -24, 0, -12, R, { unit: 'dB' }),
+    P('register', 'Register', 0, 1, 0.5, R, { title: '0% pulses only … 100% whistle only' }),
+    P('biphon', 'Biphonation', 0, 1, 0, R),
+    P('spread', 'Spread', 0, 1, 0.3, F, { value: 0 }),
+    P('size', 'Size', 0, 1, 0, R, { title: 'Small sounds higher: the whistle sits up to 4 octaves above the note' }),
+    P('sizemode', 'Size mode', 0, 1, 0, R, { step: 1, options: ['Octaves', 'Continuous'] }),
+    P('mode', 'Mode', 0, 1, 1, F, { step: 1, value: 0 }),
+    P('glide', 'Glide', 0, 2, 0.06, KR),
+    P('transpose', 'Transpose', -24, 24, 0, F, { step: 1, value: 0 }),
+    P('detune', 'Detune', -100, 100, 0, KR),
+    P('bendrange', 'Bend range', 2, 48, 12, F, { step: 1, value: 48 }),
+    P('attack', 'Attack', 0.001, 5, 0.01, KR),
+    P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
+    P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
+    P('release', 'Release', 0.001, 8, 0.3, KR),
+    P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
+  ];
+  // the four LFOs stay off (target None); krill moves parameters itself
+  for (let i = 1; i <= 4; i++) DOLPHIN.push(P('lfo' + i + 'target', 'LFO ' + i + ' target', 0, 28, 0, F, { step: 1, value: 0 }));
+
+  // Dolphin in key mode: pulse rates heard as pitch, the whistle transpose and the end of a sweep
+  // land on the scale; Size may only move the whistle by whole octaves. Only parameters that
+  // snapping can actually change are made to vary per unit.
+  const PULSE_PITCH_HZ = 30;
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  const ftom = f => 69 + 12 * Math.log2(f / 440);
+  const dolphinKey = {
+    // act: [{ spec, lo, hi, locked }] from creature.activeParams; returns the keys that must vary
+    prepare(act) {
+      const find = k => act.find(x => x.spec.key === k);
+      const sm = find('dolphin.sizemode');
+      if (sm) { sm.lo = sm.hi = 0; sm.locked = true; }
+      const range = k => { const a = find(k); return a ? [a.lo, a.hi] : null; };
+      const kt = range('dolphin.keytrack'), rate = range('dolphin.rate'), fr = range('dolphin.freerate'),
+        wt = range('dolphin.wtranspose'), sw = range('dolphin.sweep'), sh = range('dolphin.shape');
+      const out = new Set();
+      const ktOn = !kt || kt[1] >= 0.5, ktOff = !!kt && kt[0] < 0.5;
+      if (ktOn && rate && !(rate[0] === rate[1] && Number.isInteger(rate[0]))) out.add('dolphin.rate');
+      if (ktOff && fr && fr[1] > PULSE_PITCH_HZ) out.add('dolphin.freerate');
+      if (wt && !(wt[0] === wt[1] && wt[0] % 12 === 0)) out.add('dolphin.wtranspose');
+      if ((!sh || sh[1] > 0) && sw && !(sw[0] === sw[1] && Number.isInteger(sw[0]))) out.add('dolphin.sweep');
+      return out;
+    },
+    // cc: the compiled creature; returns (values, note) => void, or null if nothing can change
+    snapper(cc) {
+      const iRate = cc.vKey.indexOf('dolphin.rate'), iFree = cc.vKey.indexOf('dolphin.freerate');
+      const iWt = cc.vKey.indexOf('dolphin.wtranspose'), iKt = cc.vKey.indexOf('dolphin.keytrack'), iSw = cc.vKey.indexOf('dolphin.sweep');
+      if (iRate < 0 && iFree < 0 && iWt < 0 && iSw < 0) return null;
+      const snap = cc.pitch.snap, ktLocked = cc.lockedValue['dolphin.keytrack'], wtLocked = cc.lockedValue['dolphin.wtranspose'] || 0;
+      return (v, note) => {
+        const kt = iKt >= 0 ? v[iKt] : ktLocked;
+        const keytrack = kt === undefined ? true : kt >= 0.5;
+        if (keytrack && iRate >= 0) {
+          const r = v[iRate];
+          if (mtof(note) * Math.pow(2, r) > PULSE_PITCH_HZ) v[iRate] = clamp((snap(note + 12 * r) - note) / 12, -6, 2);
+        } else if (!keytrack && iFree >= 0) {
+          const f = v[iFree];
+          if (f > PULSE_PITCH_HZ) v[iFree] = clamp(mtof(snap(ftom(f))), 1, 2000);
+        }
+        if (iWt >= 0) v[iWt] = clamp(snap(note + v[iWt]) - note, -24, 24);
+        if (iSw >= 0) {
+          const w = note + (iWt >= 0 ? v[iWt] : wtLocked);
+          v[iSw] = clamp((snap(w + 12 * v[iSw]) - w) / 12, -3, 3);
+        }
+      };
+    },
+  };
+
+  const SOURCES = {
+    throat: {
+      kind: 'source', id: 'throat', label: 'Throat', ns: 'throat', params: THROAT,
+      colors: ['var(--red)', 'var(--blue)'],
+      pitch: [40, 60],
+      pitchNote: 'Throat sings the notes as they are.',
+      defaults: { voicing: [0.85, 1], breathy: [0, 0.4], tense: [0, 0.3], creaky: [0, 0.2], thin: [0, 0.3], growl: [0, 0.1], jitter: [0.05, 0.2], shimmer: [0.05, 0.2], source: [0, 0] },
+      groups: [
+        { name: 'Voice', ids: ['voicing', 'breathy', 'tense', 'creaky', 'thin', 'growl'], c: 'var(--red)' },
+        { name: 'Irregularity', ids: ['jitter', 'shimmer'], c: 'var(--blue)' },
+        { name: 'Pulse shape', ids: ['source'], c: 'var(--blue)' },
+      ],
+      // holds one note; pitch moves through Transpose (±24 st) + Detune (±1 st), applied per block
+      create(sr, seed) {
+        const e = new (engines().ThroatEngine)(sr, seed);
+        for (const p of fixedOf(THROAT)) e.setParam(p.id, p.value);
+        e.setParam('glide', 0); e.setParam('detune', 0); e.setParam('transpose', 0);
+        let last = NaN;
+        return {
+          reach: 25, makeupDb: headroomOf(THROAT),
+          set: (id, v) => e.setParam(id, v),
+          noteOn: n => e.noteOn(n, 100), noteOff: n => e.noteOff(n),
+          setOffset(off) {
+            if (off === last) return; last = off;
+            const t = clamp(off, -24, 24);
+            e.setParam('transpose', t); e.setParam('detune', (off - t) * 100);
+          },
+          render: (out, n) => e.process(out, n),
+        };
+      },
+    },
+    dolphin: {
+      kind: 'source', id: 'dolphin', label: 'Dolphin', ns: 'dolphin', params: DOLPHIN,
+      colors: ['var(--blue)'],
+      pitch: [60, 84],
+      keySnap: dolphinKey,
+      defaults: {
+        rate: [-3, -1], keytrack: [1, 1], freerate: [13, 13], pattern: [0, 0], coda: [0, 0],
+        jitter: [0, 0.2], rubato: [0, 0.3], ornament: [0, 0], clicktone: [-0.5, 0.5], clickwidth: [0.1, 0.1],
+        ring: [0, 0.3], vowel: [0, 0.5], shape: [1, 4], sweep: [-1, 1.5], time: [0.3, 1.5],
+        wtranspose: [0, 0], harmonics: [1, 2], harmlevel: [-18, -8], register: [0.3, 0.9],
+        biphon: [0, 0.3], size: [0.2, 0.6], sizemode: [0, 0],
+      },
+      groups: [
+        { name: 'Pulses', ids: ['rate', 'keytrack', 'freerate', 'pattern', 'coda', 'jitter', 'rubato', 'ornament'], c: 'var(--blue)' },
+        { name: 'Clicks', ids: ['clicktone', 'clickwidth', 'ring', 'vowel'], c: 'var(--blue)' },
+        { name: 'Whistle', ids: ['shape', 'sweep', 'time', 'wtranspose', 'harmonics', 'harmlevel'], c: 'var(--blue)' },
+        { name: 'Blend', ids: ['register', 'biphon', 'size', 'sizemode'], c: 'var(--blue)' },
+      ],
+      // what the page says about pitch: the whistle sounds Size octaves above the note
+      pitchInfo(c, rangeOf, noteName) {
+        const sz = rangeOf('dolphin.size');
+        const k1 = Math.round(4 * (1 - sz[1])), k2 = Math.round(4 * (1 - sz[0]));
+        const oct = k1 === k2 ? '+' + k1 : '+' + k1 + ' to +' + k2;
+        return 'Dolphin: pulses follow the notes; the whistle sounds ' + oct + ' octaves higher (' +
+          noteName(c.pitch.low + 12 * k1) + '–' + noteName(Math.min(127, c.pitch.high + 12 * k2)) + ').';
+      },
+      // holds one note; pitch moves through the bend (range fixed at ±48 st); stereo summed to mono
+      create(sr, seed) {
+        const e = new (engines().DolphinEngine)(sr, seed);
+        for (const p of fixedOf(DOLPHIN)) e.setParam(p.id, p.value);
+        e.setParam('glide', 0); e.setParam('detune', 0);
+        const r = new Float32Array(32);
+        let last = NaN;
+        return {
+          reach: 48, makeupDb: headroomOf(DOLPHIN),
+          set: (id, v) => e.setParam(id, v),
+          noteOn: n => e.noteOn(n, 100), noteOff: n => e.noteOff(n),
+          setOffset(off) { if (off !== last) { last = off; e.setBend(off / 48); } },
+          render(out, n) {
+            const rr = r.length >= n ? r : new Float32Array(n);
+            e.process(out, rr, n);
+            for (let i = 0; i < n; i++) out[i] = (out[i] + rr[i]) * 0.5;
+          },
+        };
+      },
+    },
+  };
+
+  // ---------------- bodies ----------------
+
+  const TUBE = [
+    P('tongueX', 'Tongue front–back', 0, 1, 0.55, R),
+    P('tongueY', 'Tongue close–open', 0, 1, 0.7, R),
+    P('tip', 'Tip', 0, 1, 0, R),
+    P('jaw', 'Jaw', 0, 1, 0.3, R),
+    P('lips', 'Lips', 0, 1, 0.6, R),
+    P('round', 'Round', 0, 1, 0, R),
+    P('nasal', 'Nasal', 0, 1, 0, R),
+    P('length', 'Length', 7, 35, 17, R, { unit: 'cm' }),
+    P('damping', 'Damping', 0, 1, 0.5, R),
+    P('spread', 'Spread', 0, 1, 0, F, { value: 0 }),
+    P('radiation', 'Radiation', 0, 1, 1, F, { value: 1 }),
+    P('mix', 'Mix', 0, 1, 1, F, { value: 1 }),
+    P('output', 'Output', -24, 12, 0, F, { value: -18, headroom: true }),
+  ];
+  // The tube can add 20 dB or more of peak gain (clicks ringing its resonances), so it's fed this
+  // much lower and the makeup adds it back. It's linear, so only headroom changes.
+  const TUBE_TRIM_DB = -24;
+
+  const BODIES = {
+    none: {
+      kind: 'body', id: 'none', label: 'None', ns: null, params: [], defaults: {}, groups: [], colors: [],
+      create: () => null,
+    },
+    tube: {
+      kind: 'body', id: 'tube', label: 'Mouth', ns: 'tube', params: TUBE, colors: ['var(--purple)'],
+      view: 'tube',                     // the page draws the tract and the vowel pad for this body
+      defaults: { tongueX: [0.2, 0.8], tongueY: [0.3, 0.9], tip: [0, 0], jaw: [0.2, 0.6], lips: [0.4, 0.9], round: [0, 0.5], nasal: [0, 0.15], length: [14, 20], damping: [0.4, 0.6] },
+      groups: [{ name: 'Tract', ids: ['tongueX', 'tongueY', 'tip', 'jaw', 'lips', 'round', 'nasal', 'length', 'damping'], c: 'var(--purple)' }],
+      create(sr) {
+        const t = new (engines().MouthTube)(sr);
+        for (const p of fixedOf(TUBE)) t.setParam(p.id, p.value);
+        const trim = db2lin(TUBE_TRIM_DB), scratch = new Float32Array(32);
+        return {
+          makeupDb: headroomOf(TUBE) - TUBE_TRIM_DB,
+          set: (id, v) => t.setParam(id, v),
+          snap: () => t.snap(),
+          process(inp, out, n) {
+            for (let i = 0; i < n; i++) inp[i] *= trim;
+            t.process(inp, null, out, scratch.length >= n ? scratch : new Float32Array(n), n);   // null: one channel only
+          },
+        };
+      },
+    },
+  };
+
+  // Loudness calibration (dB) per source + body, so Level 0 is about -20 dBFS RMS while calling
+  // for each species default. Measured with tools/calibrate.js; a new part needs its own entry.
+  const CALIBRATION_DB = { 'throat+none': 4.7, 'throat+tube': -7.4, 'dolphin+none': -0.6, 'dolphin+tube': -32.1 };
+
+  const api = { SOURCES, BODIES, CALIBRATION_DB, TUBE_TRIM_DB, P };
+  if (inNode) module.exports = api;
+  else K.parts = api;
+})(typeof self !== 'undefined' ? self : this);
+
 // ---- src/creature.js
 /*
  * krill · creature format
  *
- * A creature is a source engine (Throat or Dolphin), optionally through mouth-tube, plus ranges
- * for every parameter that shapes its sound, a call grammar, a signature and a manner.
+ * A creature is a source (Throat, Dolphin…) through a body (none, Mouth…), plus ranges for every
+ * parameter that shapes its sound, a call grammar, a signature, a manner and an output filter.
+ * The parts and their parameter tables live in parts.js.
  * This file owns:
  *   - the parameter table for each engine (what Krill may range, what it fixes, how values roll),
  *   - creature defaults per species,
@@ -2241,107 +2538,24 @@ select.field{padding:0 4px}
   'use strict';
 
   const FORMAT = 'krill-creature';
-  const VERSION = 1;
+  const VERSION = 2;             // 2: `body` replaces `mouth`, tube parameters are 'tube.*', output filter
 
-  // ---------- engine parameter tables ----------
-  // use: 'range' = the creature gives it a range (locked = min equal to max)
-  //      'fixed' = Krill sets it once to `value` and never touches it again
-  //      'krill' = Krill drives it from the score (pitch, envelope, glide), not from ranges. Pitch: the
-  //                voice holds one note and moves it with Throat's Transpose + Detune or Dolphin's
-  //                bend, so contours and free-mode cents are exact
-  // scale: how a 0–1 position maps into a range: 'lin', 'log' (ratios) or 'sq' (fine near the low end)
-  // step: 1 for whole-number (menu or switch) parameters
-  // headroom: output gains Krill turns down so the engines' own ±1 output clamps never touch the
-  //           sound; the voice adds the same amount back afterwards (see voice.js)
-  const R = 'range', F = 'fixed', K = 'krill';
-  function P(id, label, min, max, def, use, opt) {
-    const o = { id, label, min, max, def, use, scale: 'lin', step: 0, unit: '', value: def };
-    if (opt) for (const k in opt) o[k] = opt[k];
-    return o;
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const PARTS = inNode ? require('./parts.js') : (root.Krill || {}).parts;
+
+  // ---------- parameter tables, from the parts ----------
+  const R = 'range';
+  const ENGINES = {};            // namespace → parameter table ('throat', 'dolphin', 'tube', …)
+  const PART_OF = {};            // namespace → part
+  for (const group of [PARTS.SOURCES, PARTS.BODIES]) for (const id in group) {
+    const part = group[id];
+    if (part.ns) { ENGINES[part.ns] = part.params; PART_OF[part.ns] = part; }
   }
-
-  const ENGINES = {
-    throat: [
-      P('voicing', 'Voicing', 0, 1, 1, R),
-      P('breathy', 'Breathy', 0, 1, 0, R),
-      P('tense', 'Tense', 0, 1, 0, R),
-      P('creaky', 'Creaky', 0, 1, 0, R),
-      P('thin', 'Thin', 0, 1, 0, R),
-      P('growl', 'Growl', 0, 1, 0, R),
-      P('jitter', 'Jitter', 0, 1, 0, R),
-      P('shimmer', 'Shimmer', 0, 1, 0, R),
-      P('source', 'Source', 0, 1, 0, R, { step: 1, options: ['Flow', 'Derivative'] }),
-      P('transpose', 'Transpose', -24, 24, 0, K),
-      P('detune', 'Detune', -100, 100, 0, K),
-      P('mode', 'Mode', 0, 1, 0, F, { value: 0 }),
-      P('glide', 'Glide', 0, 2, 0.06, K),
-      P('attack', 'Attack', 0.001, 5, 0.02, K),
-      P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
-      P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
-      P('release', 'Release', 0.001, 8, 0.25, K),
-      P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
-    ],
-    dolphin: [
-      P('rate', 'Rate', -6, 2, -2, R, { unit: 'oct' }),
-      P('keytrack', 'Key track', 0, 1, 1, R, { step: 1, options: ['Off', 'On'] }),
-      P('freerate', 'Free rate', 1, 2000, 13, R, { scale: 'log', unit: '/s' }),
-      P('sync', 'Sync', 0, 1, 0, F, { step: 1, value: 0 }),
-      P('pattern', 'Pattern', 0, 3, 0, R, { step: 1, options: ['Regular', 'Increasing', 'Decreasing', 'Grouped'] }),
-      P('coda', 'Coda', 0, 16, 0, R, { step: 1 }),
-      P('jitter', 'Jitter', 0, 1, 0.05, R),
-      P('rubato', 'Rubato', 0, 1, 0, R),
-      P('ornament', 'Ornament', 0, 1, 0, R),
-      P('clicktone', 'Click tone', -2, 2, 0, R, { unit: 'oct' }),
-      P('clickwidth', 'Click width', 0.05, 0.5, 0.1, R, { scale: 'log', unit: 'ms' }),
-      P('ring', 'Ring', 0, 1, 0, R),
-      P('vowel', 'Vowel', 0, 1, 0, R),
-      P('pitchmode', 'Pitch mode', 0, 1, 0, F, { step: 1, value: 0 }),
-      P('shape', 'Shape', 0, 5, 1, R, { step: 1, options: ['Flat', 'Up', 'Down', 'Convex', 'Concave', 'Wave'] }),
-      P('sweep', 'Sweep', -3, 3, 1.4, R, { unit: 'oct' }),
-      P('time', 'Time', 0.05, 4, 1, R, { scale: 'log', unit: 's' }),
-      P('pitch', 'Pitch', -3, 3, 0, F, { value: 0 }),
-      P('wtranspose', 'Whistle transpose', -24, 24, 0, R, { step: 1, unit: 'st' }),
-      P('harmonics', 'Harmonics', 0, 3, 1, R, { step: 1 }),
-      P('harmlevel', 'Harmonic level', -24, 0, -12, R, { unit: 'dB' }),
-      P('register', 'Register', 0, 1, 0.5, R),
-      P('biphon', 'Biphonation', 0, 1, 0, R),
-      P('spread', 'Spread', 0, 1, 0.3, F, { value: 0 }),
-      P('size', 'Size', 0, 1, 0, R),
-      P('sizemode', 'Size mode', 0, 1, 0, R, { step: 1, options: ['Octaves', 'Continuous'] }),
-      P('mode', 'Mode', 0, 1, 1, F, { step: 1, value: 0 }),
-      P('glide', 'Glide', 0, 2, 0.06, K),
-      P('transpose', 'Transpose', -24, 24, 0, F, { step: 1, value: 0 }),
-      P('detune', 'Detune', -100, 100, 0, K),
-      P('bendrange', 'Bend range', 2, 48, 12, F, { step: 1, value: 48 }),
-      P('attack', 'Attack', 0.001, 5, 0.01, K),
-      P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
-      P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
-      P('release', 'Release', 0.001, 8, 0.3, K),
-      P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
-    ],
-    mouth: [
-      P('tongueX', 'Tongue front–back', 0, 1, 0.55, R),
-      P('tongueY', 'Tongue close–open', 0, 1, 0.7, R),
-      P('tip', 'Tip', 0, 1, 0, R),
-      P('jaw', 'Jaw', 0, 1, 0.3, R),
-      P('lips', 'Lips', 0, 1, 0.6, R),
-      P('round', 'Round', 0, 1, 0, R),
-      P('nasal', 'Nasal', 0, 1, 0, R),
-      P('length', 'Length', 7, 35, 17, R, { unit: 'cm' }),
-      P('damping', 'Damping', 0, 1, 0.5, R),
-      P('spread', 'Spread', 0, 1, 0, F, { value: 0 }),
-      P('radiation', 'Radiation', 0, 1, 1, F, { value: 1 }),
-      P('mix', 'Mix', 0, 1, 1, F, { value: 1 }),
-      P('output', 'Output', -24, 12, 0, F, { value: -18, headroom: true }),
-    ],
-  };
-  // Dolphin LFOs: all four stay off (target None); Krill moves parameters itself
-  for (let i = 1; i <= 4; i++) ENGINES.dolphin.push(P('lfo' + i + 'target', 'LFO ' + i + ' target', 0, 28, 0, F, { step: 1, value: 0 }));
-
-  const BY_KEY = {};              // 'throat.breathy' → spec (with .engine and .key)
+  const BY_KEY = {};             // 'throat.breathy' → spec (with .engine and .key)
   for (const eng in ENGINES) for (const s of ENGINES[eng]) { s.engine = eng; s.key = eng + '.' + s.id; BY_KEY[s.key] = s; }
 
-  const SOURCES = ['throat', 'dolphin'];
+  const SOURCES = Object.keys(PARTS.SOURCES);
+  const BODIES = Object.keys(PARTS.BODIES);
   const EVOLVE = ['steady', 'rise', 'fall', 'arc', 'wander'];
 
   // ---------- position ↔ value ----------
@@ -2389,29 +2603,11 @@ select.field{padding:0 4px}
     { path: 'manner.pan', kind: 'num', min: -1, max: 1, def: 0 },
     { path: 'manner.wander', kind: 'num', min: 0, max: 1, def: 0.2 },
     { path: 'manner.level', kind: 'num', min: -48, max: 6, def: -6, unit: 'dB' },
+    { path: 'filter.on', kind: 'bool', def: false },
+    { path: 'filter.cutoff', kind: 'num', min: 200, max: 20000, def: 8000, scale: 'log', unit: 'Hz' },
   ];
   const FIELD = {};
   for (const f of FIELDS) FIELD[f.path] = f;
-
-  // ---------- species defaults ----------
-  const DEFAULT_RANGES = {
-    throat: {
-      voicing: [0.85, 1], breathy: [0, 0.4], tense: [0, 0.3], creaky: [0, 0.2], thin: [0, 0.3],
-      growl: [0, 0.1], jitter: [0.05, 0.2], shimmer: [0.05, 0.2], source: [0, 0],
-    },
-    dolphin: {
-      rate: [-3, -1], keytrack: [1, 1], freerate: [13, 13], pattern: [0, 0], coda: [0, 0],
-      jitter: [0, 0.2], rubato: [0, 0.3], ornament: [0, 0], clicktone: [-0.5, 0.5], clickwidth: [0.1, 0.1],
-      ring: [0, 0.3], vowel: [0, 0.5], shape: [1, 4], sweep: [-1, 1.5], time: [0.3, 1.5],
-      wtranspose: [0, 0], harmonics: [1, 2], harmlevel: [-18, -8], register: [0.3, 0.9],
-      biphon: [0, 0.3], size: [0.2, 0.6], sizemode: [0, 0],
-    },
-    mouth: {
-      tongueX: [0.2, 0.8], tongueY: [0.3, 0.9], tip: [0, 0], jaw: [0.2, 0.6], lips: [0.4, 0.9],
-      round: [0, 0.5], nasal: [0, 0.15], length: [14, 20], damping: [0.4, 0.6],
-    },
-  };
-  const DEFAULT_PITCH = { throat: [40, 60], dolphin: [60, 84] };
 
   function getPath(o, path) {
     const parts = path.split('.');
@@ -2429,28 +2625,40 @@ select.field{padding:0 4px}
   function clone(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
   function clampNum(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-  // a fresh creature of one species
-  function defaults(source, mouth, opts) {
-    source = SOURCES.includes(source) ? source : 'throat';
-    mouth = !!mouth;
+  // a fresh creature of one species: a source and a body ('none' for a raw source)
+  function defaults(source, body, opts) {
+    source = SOURCES.includes(source) ? source : SOURCES[0];
+    body = BODIES.includes(body) ? body : 'none';
     const c = {
       format: FORMAT, version: VERSION,
       name: (opts && opts.name) || 'Unnamed',
       seed: (opts && Number.isInteger(opts.seed)) ? opts.seed >>> 0 : 1,
-      source, mouth,
-      pitch: {}, ranges: {}, morph: 0, call: {}, signature: {}, manner: {},
+      source, body,
+      pitch: {}, ranges: {}, morph: 0, call: {}, signature: {}, manner: {}, filter: {},
     };
     for (const f of FIELDS) setPath(c, f.path, clone(f.def));
-    c.pitch.low = DEFAULT_PITCH[source][0];
-    c.pitch.high = DEFAULT_PITCH[source][1];
-    for (const id in DEFAULT_RANGES[source]) c.ranges[source + '.' + id] = DEFAULT_RANGES[source][id].slice();
-    if (mouth) for (const id in DEFAULT_RANGES.mouth) c.ranges['mouth.' + id] = DEFAULT_RANGES.mouth[id].slice();
+    const src = PARTS.SOURCES[source], bod = PARTS.BODIES[body];
+    c.pitch.low = src.pitch[0];
+    c.pitch.high = src.pitch[1];
+    for (const part of [src, bod]) for (const id in part.defaults) c.ranges[part.ns + '.' + id] = part.defaults[id].slice();
     return c;
   }
 
   // ---------- migration ----------
   // MIGRATIONS[n] turns a version n creature into version n + 1
-  const MIGRATIONS = {};
+  const MIGRATIONS = {
+    // 1 → 2: `mouth: true/false` becomes `body: 'tube' | 'none'`; 'mouth.*' ranges become 'tube.*'
+    1(o) {
+      if (o.body == null) o.body = o.mouth ? 'tube' : 'none';
+      delete o.mouth;
+      if (o.ranges && typeof o.ranges === 'object') {
+        const r = {};
+        for (const k in o.ranges) r[k.startsWith('mouth.') ? 'tube.' + k.slice(6) : k] = o.ranges[k];
+        o.ranges = r;
+      }
+      return o;
+    },
+  };
 
   // ---------- validation ----------
   // Returns { creature, warnings }. Throws only if the input is not a creature at all.
@@ -2469,20 +2677,20 @@ select.field{padding:0 4px}
     o.format = FORMAT;
     o.version = VERSION;
 
-    if (!SOURCES.includes(o.source)) { if (o.source != null) warn.push('Unknown source "' + o.source + '", using throat'); o.source = 'throat'; }
-    o.mouth = !!o.mouth;
+    if (!SOURCES.includes(o.source)) { if (o.source != null) warn.push('Unknown source "' + o.source + '", using ' + SOURCES[0]); o.source = SOURCES[0]; }
+    if (!BODIES.includes(o.body)) { if (o.body != null) warn.push('Unknown body "' + o.body + '", using none'); o.body = 'none'; }
     if (typeof o.name !== 'string' || !o.name.trim()) { o.name = 'Unnamed'; }
     o.name = o.name.trim().slice(0, 40);
     o.seed = Number.isFinite(o.seed) ? Math.floor(Math.abs(o.seed)) >>> 0 : 1;
 
-    const base = defaults(o.source, o.mouth);
+    const base = defaults(o.source, o.body);
     for (const f of FIELDS) {
       const raw = getPath(o, f.path);
       setPath(o, f.path, fixField(f, raw, getPath(base, f.path), warn));
     }
     if (o.pitch.low > o.pitch.high) { const t = o.pitch.low; o.pitch.low = o.pitch.high; o.pitch.high = t; warn.push('pitch.low was above pitch.high; swapped'); }
 
-    // ranges: keep every entry (a mouth range survives switching the mouth off), repair the known ones
+    // ranges: keep every entry (a body's ranges survive switching to another body), repair the known ones
     const ranges = (o.ranges && typeof o.ranges === 'object' && !Array.isArray(o.ranges)) ? o.ranges : {};
     o.ranges = {};
     for (const key in ranges) {
@@ -2528,8 +2736,7 @@ select.field{padding:0 4px}
   // the parameter specs a creature actually uses, in engine order: [{ spec, lo, hi, locked }]
   function activeParams(c) {
     const out = [];
-    const engines = c.mouth ? [c.source, 'mouth'] : [c.source];
-    for (const eng of engines) for (const s of ENGINES[eng]) {
+    for (const eng of namespaces(c)) for (const s of ENGINES[eng]) {
       if (s.use !== R) continue;
       const r = c.ranges[s.key];
       const lo = r ? r[0] : s.def, hi = r ? r[1] : s.def;
@@ -2538,10 +2745,24 @@ select.field{padding:0 4px}
     return out;
   }
 
+  // parameter namespaces a creature uses: its source's, then its body's (if the body has any)
+  function namespaces(c) {
+    const out = [PARTS.SOURCES[c.source].ns];
+    const b = PARTS.BODIES[c.body];
+    if (b && b.ns) out.push(b.ns);
+    return out;
+  }
+  // 'throat+tube': the key for calibration and labels
+  const species = c => c.source + '+' + c.body;
+  function speciesLabel(c) {
+    const b = PARTS.BODIES[c.body];
+    return PARTS.SOURCES[c.source].label + (b && b.ns ? ' + ' + b.label : '');
+  }
+
   // ---------- files ----------
   // Stable key order; ranges listed in engine order, unknown ones after. Unknown top-level keys kept.
   function serialise(c) {
-    const order = ['format', 'version', 'name', 'seed', 'source', 'mouth', 'pitch', 'ranges', 'morph', 'call', 'signature', 'manner'];
+    const order = ['format', 'version', 'name', 'seed', 'source', 'body', 'pitch', 'ranges', 'morph', 'call', 'signature', 'manner', 'filter'];
     const out = {};
     for (const k of order) if (k in c) out[k] = c[k];
     const ranges = {};
@@ -2569,7 +2790,7 @@ select.field{padding:0 4px}
   }
 
   const api = {
-    FORMAT, VERSION, ENGINES, BY_KEY, SOURCES, EVOLVE, FIELDS, FIELD,
+    FORMAT, VERSION, ENGINES, BY_KEY, SOURCES, BODIES, PARTS, PART_OF, EVOLVE, FIELDS, FIELD, namespaces, species, speciesLabel,
     defaults, normalise, serialise, fileName, activeParams, randomName, valueAt, positionOf,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -2606,12 +2827,10 @@ select.field{padding:0 4px}
 
   const valueAt = C.valueAt;
   const PITCH_LO = 12, PITCH_HI = 120;       // absolute limits for contour ends
-  const PULSE_PITCH_HZ = 30;                 // pulse rates above this are heard as pitch and snap to key
 
   function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
   function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
   function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
-  function ftom(f) { return 69 + 12 * Math.log2(f / 440); }
 
   // ---------- compile ----------
   // pitch: a scales.makePitch() context
@@ -2619,26 +2838,10 @@ select.field{padding:0 4px}
     const c = creature;
     const act = C.activeParams(c);
     const keyMode = !pitch.free;
-    // in key, Dolphin's Size may only move the whistle by whole octaves
-    if (keyMode && c.source === 'dolphin') {
-      const sm = act.find(a => a.spec.key === 'dolphin.sizemode');
-      if (sm) { sm.lo = sm.hi = 0; sm.locked = true; }
-    }
-    // dolphin parameters that must follow the note in key mode, even when locked, but only when
-    // snapping can actually change them (anchors are already on the scale)
-    let snapKeys = null;
-    if (keyMode && c.source === 'dolphin') {
-      const range = k => { const a = act.find(x => x.spec.key === k); return a ? [a.lo, a.hi] : null; };
-      const kt = range('dolphin.keytrack'), rate = range('dolphin.rate'), fr = range('dolphin.freerate'),
-        wt = range('dolphin.wtranspose'), sw = range('dolphin.sweep'), sh = range('dolphin.shape');
-      snapKeys = new Set();
-      const ktCanBeOn = !kt || kt[1] >= 0.5, ktCanBeOff = !!kt && kt[0] < 0.5;
-      if (ktCanBeOn && rate && !(rate[0] === rate[1] && Number.isInteger(rate[0]))) snapKeys.add('dolphin.rate');
-      if (ktCanBeOff && fr && fr[1] > PULSE_PITCH_HZ) snapKeys.add('dolphin.freerate');
-      if (wt && !(wt[0] === wt[1] && wt[0] % 12 === 0)) snapKeys.add('dolphin.wtranspose');
-      const shapeCanSweep = !sh || sh[1] > 0;                 // shape 0 = Flat ignores Sweep
-      if (shapeCanSweep && sw && !(sw[0] === sw[1] && Number.isInteger(sw[0]))) snapKeys.add('dolphin.sweep');
-    }
+    // a source's key rules (e.g. Dolphin's pulse pitch) decide which locked parameters must still
+    // follow the note per unit; only ones that snapping can actually change
+    const keySnap = keyMode ? C.PARTS.SOURCES[c.source].keySnap : null;
+    const snapKeys = keySnap ? keySnap.prepare(act) : null;
 
     const vary = [], locked = [];
     for (const a of act) {
@@ -2646,13 +2849,13 @@ select.field{padding:0 4px}
       else locked.push({ key: a.spec.key, engine: a.spec.engine, id: a.spec.id, value: a.lo });
     }
     const fixed = [];
-    for (const eng of c.mouth ? [c.source, 'mouth'] : [c.source]) {
+    for (const eng of C.namespaces(c)) {
       for (const s of C.ENGINES[eng]) if (s.use === 'fixed') fixed.push({ key: s.key, engine: eng, id: s.id, value: s.value, headroom: !!s.headroom });
     }
     const V = vary.length;
     const cc = {
       creature: c, pitch, keyMode,
-      name: c.name, source: c.source, mouth: c.mouth,
+      name: c.name, source: c.source, body: c.body,
       V,
       vKey: vary.map(a => a.spec.key),
       vSpec: vary.map(a => a.spec),
@@ -2670,15 +2873,11 @@ select.field{padding:0 4px}
       sigAmount: c.signature.amount, sigVariation: c.signature.variation,
       talkative: c.manner.talkative, responsive: c.manner.responsive, mimicry: c.manner.mimicry,
       pan: c.manner.pan, wander: c.manner.wander, level: c.manner.level,
-      iRate: -1, iFree: -1, iWt: -1, iKeytrack: -1, iSweep: -1,
+      snap: null,              // (values, note) => void: key rules applied to each unit, or null
       signature: null,
     };
     for (const l of locked) cc.lockedValue[l.key] = l.value;
-    cc.iRate = cc.vKey.indexOf('dolphin.rate');
-    cc.iFree = cc.vKey.indexOf('dolphin.freerate');
-    cc.iWt = cc.vKey.indexOf('dolphin.wtranspose');
-    cc.iKeytrack = cc.vKey.indexOf('dolphin.keytrack');
-    cc.iSweep = cc.vKey.indexOf('dolphin.sweep');
+    if (keySnap) cc.snap = keySnap.snapper(cc);
     if (keyMode) {
       cc.notes = pitch.notesIn(cc.low, cc.high);
       if (!cc.notes.length) cc.notes = [pitch.snap((cc.low + cc.high) / 2)];
@@ -2817,7 +3016,7 @@ select.field{padding:0 4px}
     const release = valueAt('log', 0, cc.release[0], cc.release[1], motif.rel);
     const out = new Array(n);
     let t = t0;
-    const snapDolphin = cc.keyMode && (cc.iRate >= 0 || cc.iFree >= 0 || cc.iWt >= 0 || cc.iSweep >= 0);
+    const snap = cc.snap;
     for (let i = 0; i < n; i++) {
       const u = units[i];
       const note = anchors[i];
@@ -2843,7 +3042,7 @@ select.field{padding:0 4px}
         v0[j] = valueAt(s.scale, s.step, cc.vLo[j], cc.vHi[j], q0);
         if (morphs) v1[j] = valueAt(s.scale, s.step, cc.vLo[j], cc.vHi[j], q1);
       }
-      if (snapDolphin) { snapPulse(cc, v0, note); if (morphs) snapPulse(cc, v1, note); }
+      if (snap) { snap(v0, note); if (morphs) snap(v1, note); }
       out[i] = { t, dur, note, noteEnd, v0, v1 };
       t += dur + (i < n - 1 ? gap : 0);
     }
@@ -2852,25 +3051,6 @@ select.field{padding:0 4px}
       t: t0, end: last.t + last.dur, tail: last.t + last.dur + release,
       attack, release, legato: cc.legato, kind: kind || 'fresh', motif, units: out,
     };
-  }
-
-  // in key mode, dolphin pulse rates heard as pitch, the whistle transpose and the end of a whistle
-  // sweep all land on the scale (Size moves the whistle by whole octaves, which keeps it in key)
-  function snapPulse(cc, v, note) {
-    const kt = cc.iKeytrack >= 0 ? v[cc.iKeytrack] : cc.lockedValue['dolphin.keytrack'];
-    const keytrack = kt === undefined ? true : kt >= 0.5;
-    if (keytrack && cc.iRate >= 0) {
-      const r = v[cc.iRate];
-      if (mtof(note) * Math.pow(2, r) > PULSE_PITCH_HZ) v[cc.iRate] = clamp((cc.pitch.snap(note + 12 * r) - note) / 12, -6, 2);
-    } else if (!keytrack && cc.iFree >= 0) {
-      const f = v[cc.iFree];
-      if (f > PULSE_PITCH_HZ) v[cc.iFree] = clamp(mtof(cc.pitch.snap(ftom(f))), 1, 2000);
-    }
-    if (cc.iWt >= 0) v[cc.iWt] = clamp(cc.pitch.snap(note + v[cc.iWt]) - note, -24, 24);
-    if (cc.iSweep >= 0) {
-      const w = note + (cc.iWt >= 0 ? v[cc.iWt] : (cc.lockedValue['dolphin.wtranspose'] || 0));
-      v[cc.iSweep] = clamp((cc.pitch.snap(w + 12 * v[cc.iSweep]) - w) / 12, -3, 3);
-    }
   }
 
   // ---------- a creature that calls ----------
@@ -2928,9 +3108,10 @@ select.field{padding:0 4px}
 
   function slotInfo(cc) {
     return {
-      name: cc.name, source: cc.source, mouth: cc.mouth,
+      name: cc.name, source: cc.source, body: cc.body,
       vary: cc.vKey, varyStep: cc.vSpec.map(s => s.step ? 1 : 0), locked: cc.locked, fixed: cc.fixed,
       pan: cc.pan, wander: cc.wander, level: cc.level,
+      filter: { on: !!cc.creature.filter.on, cutoff: cc.creature.filter.cutoff },
     };
   }
 
@@ -2944,7 +3125,7 @@ select.field{padding:0 4px}
     });
   }
 
-  const api = { compile, generateMotif, mutate, realise, Caller, soloScore, slotInfo, scoreToJSON, mtof, ftom };
+  const api = { compile, generateMotif, mutate, realise, Caller, soloScore, slotInfo, scoreToJSON, mtof };
   if (inNode) module.exports = api;
   else K.roll = api;
 })(typeof self !== 'undefined' ? self : this);
@@ -2993,17 +3174,20 @@ select.field{padding:0 4px}
 /*
  * krill · one creature's voice
  *
- * Plays one slot's calls on its own engine (Throat or Dolphin), optionally through mouth-tube,
- * then pans it into the stereo mix. Everything runs in the engines' own 32-sample blocks, so the
- * sound doesn't depend on how the caller chunks the output.
+ * Plays one slot's calls: source → body → optional low-pass → pan, into the stereo mix. The
+ * source and body come from parts.js, so nothing here names an engine. Everything runs in the
+ * engines' own 32-sample blocks, so the sound doesn't depend on how the caller chunks the output.
  *
- *   pitch   the engine holds one MIDI note; Krill moves it with Throat's Transpose + Detune
- *           (±25 st) or Dolphin's bend (±48 st). When a legato line goes further, the voice
- *           re-bases onto a new held note in the same block, so the pitch stays continuous.
+ *   pitch   the source holds one MIDI note and moves it with its setOffset (Throat: Transpose +
+ *           Detune, ±25 st; Dolphin: bend, ±48 st). When a legato line goes further than the
+ *           source's reach, the voice re-bases onto a new held note in the same block, so the
+ *           pitch stays continuous.
+ *   filter  optional fixed low-pass at the end (24 dB/oct Butterworth), set per creature;
+ *           off costs nothing.
  *   params  sent only when their value changes: once at a unit's start, then per block only
  *           for units that Morph.
  *   silence a voice with nothing sounding and its tail decayed isn't processed at all
- *           (engine, tube and panning are skipped; block() returns false).
+ *           (source, body, filter and panning are skipped; block() returns false).
  *
  * Works in the browser (Krill.voice) and in Node (module.exports).
  */
@@ -3013,20 +3197,20 @@ select.field{padding:0 4px}
   const inNode = typeof module !== 'undefined' && module.exports;
   const K = inNode ? null : (root.Krill = root.Krill || {});
   const E = inNode ? require('./engines.js') : K.engines;
+  const PARTS = inNode ? require('./parts.js') : K.parts;
   const { hash, tag } = inNode ? require('./rng.js') : K.rng;
 
   const B = E.BLOCK;
   const TAIL_PAD = 0.75;          // s after a call's release before the voice may sleep (engine + tube ring-out)
-  const THROAT_LIM = 25, DOLPHIN_LIM = 48;     // pitch offset reach before re-basing (semitones)
   const LEGATO_GLIDE = 0.08;      // s, glide into the next unit of a legato call
-  // The tube can add 20 dB or more of peak gain (clicks ringing its resonances), so it's fed this
-  // much lower and the voice adds it back afterwards. It's linear, so only headroom changes.
-  const TUBE_TRIM_DB = -24;
-  const TUBE_TRIM = Math.pow(10, TUBE_TRIM_DB / 20);
-  // Loudness calibration per species, so Level 0 means roughly the same loudness for all four
-  // (about -20 dBFS RMS while calling, for the species defaults). Measured with
-  // tools/calibrate.js; re-measure if an engine is updated.
-  const CALIBRATION_DB = { throat: 4.7, 'throat+tube': -7.4, dolphin: -0.6, 'dolphin+tube': -32.1 };
+  const BUTTER_Q = [0.5411961, 1.3065630];     // two biquads = 4th-order Butterworth low-pass
+
+  // RBJ low-pass biquad coefficients [b0, b1, b2, a1, a2] (a0 normalised)
+  function lowpass(f, q, sr) {
+    const w = 2 * Math.PI * f / sr, cs = Math.cos(w), al = Math.sin(w) / (2 * q), a0 = 1 + al;
+    const b1 = (1 - cs) / a0;
+    return [b1 / 2, b1, b1 / 2, -2 * cs / a0, (1 - al) / a0];
+  }
 
   function smooth(x) { return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); }
 
@@ -3045,19 +3229,16 @@ select.field{padding:0 4px}
       const sr = opts.sampleRate;
       this.sr = sr;
       this.bdt = B / sr;
-      this.throat = slot.source === 'throat';
       const eseed = hash(opts.seed >>> 0, tag('engine'));
-      this.eng = this.throat ? new E.ThroatEngine(sr, eseed) : new E.DolphinEngine(sr, eseed);
-      this.tube = slot.mouth ? new E.MouthTube(sr) : null;
-      this.lim = this.throat ? THROAT_LIM : DOLPHIN_LIM;
+      const srcPart = PARTS.SOURCES[slot.source], bodyPart = PARTS.BODIES[slot.body || 'none'];
+      this.src = srcPart.create(sr, eseed);
+      this.body = bodyPart.create(sr);                 // null for no body
+      this.srcNs = srcPart.ns;
+      this.lim = this.src.reach;
 
-      // set once: Krill's fixed values, then the creature's locked ones
-      for (const f of slot.fixed) this.send(f.engine === 'mouth' ? 1 : 0, f.id, f.value);
-      for (const l of slot.locked) this.send(l.engine === 'mouth' ? 1 : 0, l.id, l.value);
-      this.send(0, 'glide', 0);
-      this.send(0, 'detune', 0);
-      if (this.throat) this.send(0, 'transpose', 0);
-      if (this.tube) this.tube.snap();
+      // set once: the creature's locked values (each part sets its own fixed ones)
+      for (const l of slot.locked) this.send(l.engine === this.srcNs ? 0 : 1, l.id, l.value);
+      if (this.body) this.body.snap();
 
       // varying parameters: where each one goes
       const V = slot.vary.length;
@@ -3068,7 +3249,7 @@ select.field{padding:0 4px}
       this.last = new Float64Array(V).fill(NaN);
       slot.vary.forEach((key, j) => {
         const dot = key.indexOf('.');
-        this.vTube[j] = key.slice(0, dot) === 'mouth' ? 1 : 0;
+        this.vTube[j] = key.slice(0, dot) === this.srcNs ? 0 : 1;     // 0 source, 1 body
         this.vId[j] = key.slice(dot + 1);
         this.vStep[j] = slot.varyStep ? slot.varyStep[j] : 0;
       });
@@ -3085,44 +3266,37 @@ select.field{padding:0 4px}
       this.ui = -1;              // its current unit
       this.unitOn = false;
       this.held = -1;            // MIDI note held by the engine
-      this.lastOff = NaN;
       this.awakeUntil = -1;      // block until which the voice must keep processing
 
-      // output: the creature's level, plus back what was taken off for headroom inside the engines
-      let comp = 0;
-      for (const f of slot.fixed) if (f.headroom) comp -= f.value;
-      if (this.tube) comp -= TUBE_TRIM_DB;
-      comp += CALIBRATION_DB[slot.source + (slot.mouth ? '+tube' : '')] || 0;
+      // output: the creature's level, plus what the parts took off for headroom, plus calibration
+      const comp = this.src.makeupDb + (this.body ? this.body.makeupDb : 0) + (PARTS.CALIBRATION_DB[slot.source + '+' + (slot.body || 'none')] || 0);
       this.gain = Math.pow(10, ((opts.level == null ? 0 : opts.level) + comp) / 20);
-      this.srcPeak = 0;          // largest engine/tube output sample: must stay well below 1
+      this.srcPeak = 0;          // largest source/body output sample: must stay well below 1 (their clamps)
+      // optional low-pass: coefficients once, state per stage
+      const f = slot.filter;
+      this.lp = null;
+      if (f && f.on && f.cutoff < 0.45 * sr) {
+        this.lp = BUTTER_Q.map(q => lowpass(f.cutoff, q, sr));
+        this.lpZ = new Float64Array(4);
+      }
       this.home = opts.pan || 0;
       this.wander = opts.wander || 0;
       this.width = opts.width == null ? 1 : opts.width;
       this.panSeed = hash(opts.seed >>> 0, tag('pan'));
       this.panPeriod = 6 + 24 * (1 - this.wander);
-      this.a = new Float32Array(B); this.b = new Float32Array(B);
-      this.oL = new Float32Array(B); this.oR = new Float32Array(B);
+      this.a = new Float32Array(B);
+      this.oL = new Float32Array(B);
       this.blocks = 0;           // blocks actually processed (for the bench)
     }
 
     send(target, id, v) {
-      if (target === 1) { if (this.tube) this.tube.setParam(id, v); }
-      else this.eng.setParam(id, v);
+      if (target === 1) { if (this.body) this.body.set(id, v); }
+      else this.src.set(id, v);
     }
 
-    noteOn(n) { this.eng.noteOn(n, 100); }
-    noteOff(n) { this.eng.noteOff(n); }
-
-    // pitch offset from the held note: Throat Transpose + Detune, Dolphin bend
-    setOffset(off) {
-      if (off === this.lastOff) return;
-      this.lastOff = off;
-      if (this.throat) {
-        const t = off > 24 ? 24 : off < -24 ? -24 : off;
-        this.eng.setParam('transpose', t);
-        this.eng.setParam('detune', (off - t) * 100);
-      } else this.eng.setBend(off / DOLPHIN_LIM);
-    }
+    noteOn(n) { this.src.noteOn(n); }
+    noteOff(n) { this.src.noteOff(n); }
+    setOffset(off) { this.src.setOffset(off); }
 
     // move to an absolute pitch, re-basing the held note when the offset runs out of reach
     pitch(p) {
@@ -3162,7 +3336,6 @@ select.field{padding:0 4px}
       if (i === 0 || !call.c.legato) {
         if (this.held >= 0) this.noteOff(this.held);
         this.held = Math.round(u.note);
-        this.lastOff = NaN;
         this.setOffset(u.note - this.held);
         this.noteOn(this.held);
       }
@@ -3206,20 +3379,25 @@ select.field{padding:0 4px}
       if (!this.cur && b >= this.awakeUntil) return false;   // asleep: nothing sounding, tail decayed
       this.blocks++;
       const a = this.a;
-      if (this.throat) this.eng.process(a, B);
-      else {
-        const r = this.b;
-        this.eng.process(a, r, B);
-        for (let i = 0; i < B; i++) a[i] = (a[i] + r[i]) * 0.5;
-      }
+      this.src.render(a, B);
       let src = a;
-      if (this.tube) {
-        for (let i = 0; i < B; i++) a[i] *= TUBE_TRIM;
-        this.tube.process(a, null, this.oL, this.oR, B); src = this.oL;
-      }
+      if (this.body) { this.body.process(a, this.oL, B); src = this.oL; }
       let pk = this.srcPeak;
       for (let i = 0; i < B; i++) { const x = src[i] < 0 ? -src[i] : src[i]; if (x > pk) pk = x; }
       this.srcPeak = pk;
+      if (this.lp) {
+        const z = this.lpZ;
+        for (let s = 0; s < 2; s++) {
+          const [b0, b1, b2, a1, a2] = this.lp[s];
+          let z1 = z[2 * s], z2 = z[2 * s + 1];
+          for (let i = 0; i < B; i++) {            // transposed direct form II
+            const x = src[i], y = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y;
+            src[i] = y;
+          }
+          z[2 * s] = z1; z[2 * s + 1] = z2;
+        }
+      }
       // pan: equal power around home, wandering slowly
       let pan = this.home;
       if (this.wander > 0) pan += this.wander * noise(this.panSeed, b * this.bdt, this.panPeriod);
@@ -3232,7 +3410,7 @@ select.field{padding:0 4px}
     get done() { return !this.cur && this.ci >= this.calls.length; }
   }
 
-  const api = { Voice, noise, TAIL_PAD, CALIBRATION_DB, TUBE_TRIM_DB };
+  const api = { Voice, noise, TAIL_PAD, lowpass };
   if (inNode) module.exports = api;
   else K.voice = api;
 })(typeof self !== 'undefined' ? self : this);
@@ -3601,17 +3779,17 @@ select.field{padding:0 4px}
 
   const START = 0.05;                  // s of silence before the call
   const TAIL = 0.9;                    // s after the call's release
-  const MOUTH_IDS = ['tongueX', 'tongueY', 'tip', 'jaw', 'lips', 'round', 'nasal', 'length'];
-
-  // mouth shape at the start and end of a unit, for drawing the tube
-  function mouthOf(slot, u) {
+  // the body's parameter values at the start and end of a unit (for the page's body view)
+  function bodyOf(slot, u) {
+    const part = C.PARTS.BODIES[slot.body];
+    if (!part || !part.ns) return null;
     const base = {};
-    for (const id of MOUTH_IDS) base[id] = C.BY_KEY['mouth.' + id].def;
-    for (const l of slot.locked) if (l.engine === 'mouth') base[l.id] = l.value;
-    const a = Object.assign({}, base), b = Object.assign({}, base);
+    for (const p of part.params) base[p.id] = p.use === 'fixed' ? p.value : p.def;
+    for (const l of slot.locked) if (l.engine === part.ns) base[l.id] = l.value;
+    const a = Object.assign({}, base), b = Object.assign({}, base), pre = part.ns + '.';
     slot.vary.forEach((k, j) => {
-      if (!k.startsWith('mouth.')) return;
-      const id = k.slice(6);
+      if (!k.startsWith(pre)) return;
+      const id = k.slice(pre.length);
       a[id] = u.v0[j]; b[id] = u.v1[j];
     });
     return { start: a, end: b };
@@ -3641,7 +3819,8 @@ select.field{padding:0 4px}
       call: {
         kind: call.kind, attack: call.attack, release: call.release, legato: call.legato,
         t: call.t, end: call.end, tail: call.tail,
-        units: call.units.map(u => ({ t: u.t, dur: u.dur, note: u.note, noteEnd: u.noteEnd, mouth: creature.mouth ? mouthOf(slot, u) : null })),
+        units: call.units.map(u => ({ t: u.t, dur: u.dur, note: u.note, noteEnd: u.noteEnd, body: bodyOf(slot, u) })),
+        bodyView: (C.PARTS.BODIES[creature.body] || {}).view || null,
       },
       peakDb: st.peakDb, enginePeakDb: st.enginePeakDb[0],
     };
@@ -3750,7 +3929,7 @@ self.onmessage = e => {
   }
 };
 </script>
-<script>window.KRILL_EXAMPLES = [{"format":"krill-creature","version":1,"name":"Glassfin","seed":9071,"source":"dolphin","mouth":false,"pitch":{"low":40,"high":60,"contour":[-3,7]},"ranges":{"dolphin.rate":[-3,-1],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,0],"dolphin.coda":[0,0],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.3],"dolphin.ornament":[0,0],"dolphin.clicktone":[-0.5,0.5],"dolphin.clickwidth":[0.1,0.1],"dolphin.ring":[0,0.3],"dolphin.vowel":[0,0.5],"dolphin.shape":[1,4],"dolphin.sweep":[-0.8,1.2],"dolphin.time":[0.4,1.8],"dolphin.wtranspose":[0,0],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0.75,1],"dolphin.biphon":[0,0.35],"dolphin.size":[0.25,0.5],"dolphin.sizemode":[0,0]},"morph":0.3,"call":{"units":[1,4],"unitLength":[0.4,2.5],"gap":[0.05,0.4],"legato":false,"evolve":"arc","evolveAmount":0.4,"rest":[4,30],"attack":[0.02,0.2],"release":[0.3,1.5]},"signature":{"amount":0.5,"variation":0.2},"manner":{"talkative":0.4,"responsive":0.7,"mimicry":0.5,"pan":-0.4,"wander":0.3,"level":-6}},{"format":"krill-creature","version":1,"name":"Moanback","seed":311,"source":"throat","mouth":true,"pitch":{"low":36,"high":52,"contour":[-2,3]},"ranges":{"throat.voicing":[0.85,1],"throat.breathy":[0.2,0.6],"throat.tense":[0,0.3],"throat.creaky":[0,0.35],"throat.thin":[0,0.3],"throat.growl":[0,0.15],"throat.jitter":[0.05,0.2],"throat.shimmer":[0.05,0.2],"throat.source":[0,0],"mouth.tongueX":[0.5,1],"mouth.tongueY":[0.2,0.8],"mouth.tip":[0,0],"mouth.jaw":[0.1,0.5],"mouth.lips":[0.4,0.9],"mouth.round":[0.3,0.9],"mouth.nasal":[0,0.15],"mouth.length":[24,32],"mouth.damping":[0.4,0.6]},"morph":0.7,"call":{"units":[1,2],"unitLength":[2,9],"gap":[0.3,1.5],"legato":true,"evolve":"fall","evolveAmount":0.5,"rest":[10,60],"attack":[0.3,1.5],"release":[1,4]},"signature":{"amount":0.3,"variation":0.3},"manner":{"talkative":0.3,"responsive":0.4,"mimicry":0.3,"pan":0.2,"wander":0.15,"level":-8}},{"format":"krill-creature","version":1,"name":"Ticker","seed":1717,"source":"dolphin","mouth":true,"pitch":{"low":48,"high":72,"contour":[0,0]},"ranges":{"dolphin.rate":[-5,-2],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,3],"dolphin.coda":[0,8],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.5],"dolphin.ornament":[0,0],"dolphin.clicktone":[-1,1],"dolphin.clickwidth":[0.1,0.1],"dolphin.ring":[0.1,0.6],"dolphin.vowel":[0,0.5],"dolphin.shape":[1,4],"dolphin.sweep":[-1,1.5],"dolphin.time":[0.3,1.5],"dolphin.wtranspose":[0,0],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0,0.12],"dolphin.biphon":[0,0.3],"dolphin.size":[0.2,0.6],"dolphin.sizemode":[0,0],"mouth.tongueX":[0,1],"mouth.tongueY":[0,1],"mouth.tip":[0,0],"mouth.jaw":[0.2,0.6],"mouth.lips":[0.2,1],"mouth.round":[0,0.5],"mouth.nasal":[0,0.15],"mouth.length":[9,18],"mouth.damping":[0.4,0.6]},"morph":0.5,"call":{"units":[5,12],"unitLength":[0.08,0.5],"gap":[0.02,0.25],"legato":false,"evolve":"rise","evolveAmount":0.6,"rest":[2,15],"attack":[0.005,0.03],"release":[0.05,0.3]},"signature":{"amount":0.2,"variation":0.4},"manner":{"talkative":0.6,"responsive":0.6,"mimicry":0.6,"pan":0.5,"wander":0.4,"level":-9}},{"format":"krill-creature","version":1,"name":"Wicklace","seed":50,"source":"throat","mouth":false,"pitch":{"low":70,"high":96,"contour":[-5,5]},"ranges":{"throat.voicing":[0.85,1],"throat.breathy":[0,0.2],"throat.tense":[0.4,0.9],"throat.creaky":[0,0.2],"throat.thin":[0.5,1],"throat.growl":[0,0.1],"throat.jitter":[0.1,0.5],"throat.shimmer":[0.1,0.4],"throat.source":[0,1]},"morph":0.2,"call":{"units":[3,9],"unitLength":[0.05,0.4],"gap":[0,0.15],"legato":false,"evolve":"wander","evolveAmount":0.5,"rest":[3,25],"attack":[0.005,0.05],"release":[0.03,0.4]},"signature":{"amount":0.4,"variation":0.25},"manner":{"talkative":0.5,"responsive":0.5,"mimicry":0.4,"pan":-0.7,"wander":0.5,"level":-5}}];
+<script>window.KRILL_EXAMPLES = [{"format":"krill-creature","version":2,"name":"Glassfin","seed":9071,"source":"dolphin","body":"none","pitch":{"low":40,"high":60,"contour":[-3,7]},"ranges":{"dolphin.rate":[-3,-1],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,0],"dolphin.coda":[0,0],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.3],"dolphin.ornament":[0,0],"dolphin.clicktone":[-0.5,0.5],"dolphin.clickwidth":[0.1,0.1],"dolphin.ring":[0,0.3],"dolphin.vowel":[0,0.5],"dolphin.shape":[1,4],"dolphin.sweep":[-0.8,1.2],"dolphin.time":[0.4,1.8],"dolphin.wtranspose":[0,0],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0.75,1],"dolphin.biphon":[0,0.35],"dolphin.size":[0.25,0.5],"dolphin.sizemode":[0,0]},"morph":0.3,"call":{"units":[1,4],"unitLength":[0.4,2.5],"gap":[0.05,0.4],"legato":false,"evolve":"arc","evolveAmount":0.4,"rest":[4,30],"attack":[0.02,0.2],"release":[0.3,1.5]},"signature":{"amount":0.5,"variation":0.2},"manner":{"talkative":0.4,"responsive":0.7,"mimicry":0.5,"pan":-0.4,"wander":0.3,"level":-6},"filter":{"on":false,"cutoff":8000}},{"format":"krill-creature","version":2,"name":"Moanback","seed":311,"source":"throat","body":"tube","pitch":{"low":36,"high":52,"contour":[-2,3]},"ranges":{"throat.voicing":[0.85,1],"throat.breathy":[0.2,0.6],"throat.tense":[0,0.3],"throat.creaky":[0,0.35],"throat.thin":[0,0.3],"throat.growl":[0,0.15],"throat.jitter":[0.05,0.2],"throat.shimmer":[0.05,0.2],"throat.source":[0,0],"tube.tongueX":[0.5,1],"tube.tongueY":[0.2,0.8],"tube.tip":[0,0],"tube.jaw":[0.1,0.5],"tube.lips":[0.4,0.9],"tube.round":[0.3,0.9],"tube.nasal":[0,0.15],"tube.length":[24,32],"tube.damping":[0.4,0.6]},"morph":0.7,"call":{"units":[1,2],"unitLength":[2,9],"gap":[0.3,1.5],"legato":true,"evolve":"fall","evolveAmount":0.5,"rest":[10,60],"attack":[0.3,1.5],"release":[1,4]},"signature":{"amount":0.3,"variation":0.3},"manner":{"talkative":0.3,"responsive":0.4,"mimicry":0.3,"pan":0.2,"wander":0.15,"level":-8},"filter":{"on":false,"cutoff":8000}},{"format":"krill-creature","version":2,"name":"Ticker","seed":1717,"source":"dolphin","body":"tube","pitch":{"low":48,"high":72,"contour":[0,0]},"ranges":{"dolphin.rate":[-5,-2],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,3],"dolphin.coda":[0,8],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.5],"dolphin.ornament":[0,0],"dolphin.clicktone":[-1,1],"dolphin.clickwidth":[0.1,0.1],"dolphin.ring":[0.1,0.6],"dolphin.vowel":[0,0.5],"dolphin.shape":[1,4],"dolphin.sweep":[-1,1.5],"dolphin.time":[0.3,1.5],"dolphin.wtranspose":[0,0],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0,0.12],"dolphin.biphon":[0,0.3],"dolphin.size":[0.2,0.6],"dolphin.sizemode":[0,0],"tube.tongueX":[0,1],"tube.tongueY":[0,1],"tube.tip":[0,0],"tube.jaw":[0.2,0.6],"tube.lips":[0.2,1],"tube.round":[0,0.5],"tube.nasal":[0,0.15],"tube.length":[9,18],"tube.damping":[0.4,0.6]},"morph":0.5,"call":{"units":[5,12],"unitLength":[0.08,0.5],"gap":[0.02,0.25],"legato":false,"evolve":"rise","evolveAmount":0.6,"rest":[2,15],"attack":[0.005,0.03],"release":[0.05,0.3]},"signature":{"amount":0.2,"variation":0.4},"manner":{"talkative":0.6,"responsive":0.6,"mimicry":0.6,"pan":0.5,"wander":0.4,"level":-9},"filter":{"on":false,"cutoff":8000}},{"format":"krill-creature","version":2,"name":"Wicklace","seed":50,"source":"throat","body":"none","pitch":{"low":70,"high":96,"contour":[-5,5]},"ranges":{"throat.voicing":[0.85,1],"throat.breathy":[0,0.2],"throat.tense":[0.4,0.9],"throat.creaky":[0,0.2],"throat.thin":[0.5,1],"throat.growl":[0,0.1],"throat.jitter":[0.1,0.5],"throat.shimmer":[0.1,0.4],"throat.source":[0,1]},"morph":0.2,"call":{"units":[3,9],"unitLength":[0.05,0.4],"gap":[0,0.15],"legato":false,"evolve":"wander","evolveAmount":0.5,"rest":[3,25],"attack":[0.005,0.05],"release":[0.03,0.4]},"signature":{"amount":0.4,"variation":0.25},"manner":{"talkative":0.5,"responsive":0.5,"mimicry":0.4,"pan":-0.7,"wander":0.5,"level":-5},"filter":{"on":false,"cutoff":8000}}];
 // ---- vendor/mouth-tube.js
 /*
  * mouth-tube v0.1 · bytebent
@@ -4364,12 +4543,314 @@ self.onmessage = e => {
   else (root.Krill = root.Krill || {}).scales = api;
 })(typeof self !== 'undefined' ? self : this);
 
+// ---- src/parts.js
+/*
+ * krill · parts: the sources and bodies a creature can be built from
+ *
+ * A creature is one SOURCE (makes the sound) through one BODY (shapes it; 'none' = raw source).
+ * Everything krill knows about a particular engine lives in its entry here, so a new synth or
+ * a new resonating body is one more entry; nothing else in krill names an engine.
+ *
+ * Every part has:
+ *   id, label, ns          ns = namespace of its parameters in creature files ('throat.breathy')
+ *   params                 the engine's parameter table (see P below)
+ *   defaults               species-default ranges { id: [lo, hi] }
+ *   groups, colors         how the creature page lays it out and colours it
+ *   create(sr, seed)       an instance with krill's uniform interface (below)
+ * Sources also have:
+ *   pitch                  default note range [low, high]
+ *   keySnap (optional)     rules for parameters that move pitch, applied in key mode
+ * A source instance:  set(id, v) · noteOn(n) · noteOff(n) · setOffset(semitones) · render(out, n)
+ *                     (mono, 32-sample blocks) · reach (how far setOffset can move, semitones)
+ *                     · makeupDb (gain the voice adds back after the engine's headroom)
+ * A body instance:    set(id, v) · snap() · process(inp, out, n) (may overwrite inp) · makeupDb
+ * Loudness calibration per source + body combination is in CALIBRATION_DB (tools/calibrate.js).
+ *
+ * Param fields:
+ *   use    'range' = the creature gives it a range (locked = min equal to max)
+ *          'fixed' = krill sets it once to `value` and never touches it again
+ *          'krill' = krill drives it from the score (pitch, envelope, glide), not from ranges
+ *   scale  how a 0–1 position maps into a range: 'lin', 'log' (ratios) or 'sq' (fine near the low end)
+ *   step   1 for whole-number (menu or switch) parameters
+ *   headroom  an output gain krill turns down so the engine's own ±1 clamp never touches the
+ *          sound; the part's makeupDb adds it back
+ *
+ * Works in the browser (Krill.parts) and in Node (module.exports). Engines are only needed
+ * when create() is called, so pages can load this file without them.
+ */
+(function (root) {
+  'use strict';
+
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const K = inNode ? null : (root.Krill = root.Krill || {});
+  const engines = () => inNode ? require('./engines.js') : K.engines;
+
+  const R = 'range', F = 'fixed', KR = 'krill';
+  function P(id, label, min, max, def, use, opt) {
+    const o = { id, label, min, max, def, use, scale: 'lin', step: 0, unit: '', value: def };
+    if (opt) for (const k in opt) o[k] = opt[k];
+    return o;
+  }
+  const db2lin = d => Math.pow(10, d / 20);
+  const clamp = (x, lo, hi) => x < lo ? lo : x > hi ? hi : x;
+  const fixedOf = params => params.filter(p => p.use === F);
+  const headroomOf = params => params.filter(p => p.headroom).reduce((a, p) => a - p.value, 0);
+
+  // ---------------- sources ----------------
+
+  const THROAT = [
+    P('voicing', 'Voicing', 0, 1, 1, R, { title: '0% breath only … 100% fully voiced' }),
+    P('breathy', 'Breathy', 0, 1, 0, R),
+    P('tense', 'Tense', 0, 1, 0, R),
+    P('creaky', 'Creaky', 0, 1, 0, R),
+    P('thin', 'Thin', 0, 1, 0, R),
+    P('growl', 'Growl', 0, 1, 0, R),
+    P('jitter', 'Jitter', 0, 1, 0, R),
+    P('shimmer', 'Shimmer', 0, 1, 0, R),
+    P('source', 'Source', 0, 1, 0, R, { step: 1, options: ['Flow', 'Derivative'] }),
+    P('transpose', 'Transpose', -24, 24, 0, KR),
+    P('detune', 'Detune', -100, 100, 0, KR),
+    P('mode', 'Mode', 0, 1, 0, F, { value: 0 }),
+    P('glide', 'Glide', 0, 2, 0.06, KR),
+    P('attack', 'Attack', 0.001, 5, 0.02, KR),
+    P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
+    P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
+    P('release', 'Release', 0.001, 8, 0.25, KR),
+    P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
+  ];
+
+  const DOLPHIN = [
+    P('rate', 'Rate', -6, 2, -2, R, { unit: 'oct', title: 'Pulse rate in octaves from the note (when Key track is on)' }),
+    P('keytrack', 'Key track', 0, 1, 1, R, { step: 1, options: ['Off', 'On'] }),
+    P('freerate', 'Free rate', 1, 2000, 13, R, { scale: 'log', unit: '/s', title: 'Pulse rate in pulses per second (when Key track is off)' }),
+    P('sync', 'Sync', 0, 1, 0, F, { step: 1, value: 0 }),
+    P('pattern', 'Pattern', 0, 3, 0, R, { step: 1, options: ['Regular', 'Increasing', 'Decreasing', 'Grouped'] }),
+    P('coda', 'Coda', 0, 16, 0, R, { step: 1 }),
+    P('jitter', 'Jitter', 0, 1, 0.05, R),
+    P('rubato', 'Rubato', 0, 1, 0, R),
+    P('ornament', 'Ornament', 0, 1, 0, R),
+    P('clicktone', 'Click tone', -2, 2, 0, R, { unit: 'oct' }),
+    P('clickwidth', 'Click width', 0.05, 0.5, 0.1, R, { scale: 'log', unit: 'ms' }),
+    P('ring', 'Ring', 0, 1, 0, R),
+    P('vowel', 'Vowel', 0, 1, 0, R),
+    P('pitchmode', 'Pitch mode', 0, 1, 0, F, { step: 1, value: 0 }),
+    P('shape', 'Shape', 0, 5, 1, R, { step: 1, options: ['Flat', 'Up', 'Down', 'Convex', 'Concave', 'Wave'] }),
+    P('sweep', 'Sweep', -3, 3, 1.4, R, { unit: 'oct' }),
+    P('time', 'Time', 0.05, 4, 1, R, { scale: 'log', unit: 's' }),
+    P('pitch', 'Pitch', -3, 3, 0, F, { value: 0 }),
+    P('wtranspose', 'Whistle transpose', -24, 24, 0, R, { step: 1, unit: 'st' }),
+    P('harmonics', 'Harmonics', 0, 3, 1, R, { step: 1 }),
+    P('harmlevel', 'Harmonic level', -24, 0, -12, R, { unit: 'dB' }),
+    P('register', 'Register', 0, 1, 0.5, R, { title: '0% pulses only … 100% whistle only' }),
+    P('biphon', 'Biphonation', 0, 1, 0, R),
+    P('spread', 'Spread', 0, 1, 0.3, F, { value: 0 }),
+    P('size', 'Size', 0, 1, 0, R, { title: 'Small sounds higher: the whistle sits up to 4 octaves above the note' }),
+    P('sizemode', 'Size mode', 0, 1, 0, R, { step: 1, options: ['Octaves', 'Continuous'] }),
+    P('mode', 'Mode', 0, 1, 1, F, { step: 1, value: 0 }),
+    P('glide', 'Glide', 0, 2, 0.06, KR),
+    P('transpose', 'Transpose', -24, 24, 0, F, { step: 1, value: 0 }),
+    P('detune', 'Detune', -100, 100, 0, KR),
+    P('bendrange', 'Bend range', 2, 48, 12, F, { step: 1, value: 48 }),
+    P('attack', 'Attack', 0.001, 5, 0.01, KR),
+    P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
+    P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
+    P('release', 'Release', 0.001, 8, 0.3, KR),
+    P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
+  ];
+  // the four LFOs stay off (target None); krill moves parameters itself
+  for (let i = 1; i <= 4; i++) DOLPHIN.push(P('lfo' + i + 'target', 'LFO ' + i + ' target', 0, 28, 0, F, { step: 1, value: 0 }));
+
+  // Dolphin in key mode: pulse rates heard as pitch, the whistle transpose and the end of a sweep
+  // land on the scale; Size may only move the whistle by whole octaves. Only parameters that
+  // snapping can actually change are made to vary per unit.
+  const PULSE_PITCH_HZ = 30;
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  const ftom = f => 69 + 12 * Math.log2(f / 440);
+  const dolphinKey = {
+    // act: [{ spec, lo, hi, locked }] from creature.activeParams; returns the keys that must vary
+    prepare(act) {
+      const find = k => act.find(x => x.spec.key === k);
+      const sm = find('dolphin.sizemode');
+      if (sm) { sm.lo = sm.hi = 0; sm.locked = true; }
+      const range = k => { const a = find(k); return a ? [a.lo, a.hi] : null; };
+      const kt = range('dolphin.keytrack'), rate = range('dolphin.rate'), fr = range('dolphin.freerate'),
+        wt = range('dolphin.wtranspose'), sw = range('dolphin.sweep'), sh = range('dolphin.shape');
+      const out = new Set();
+      const ktOn = !kt || kt[1] >= 0.5, ktOff = !!kt && kt[0] < 0.5;
+      if (ktOn && rate && !(rate[0] === rate[1] && Number.isInteger(rate[0]))) out.add('dolphin.rate');
+      if (ktOff && fr && fr[1] > PULSE_PITCH_HZ) out.add('dolphin.freerate');
+      if (wt && !(wt[0] === wt[1] && wt[0] % 12 === 0)) out.add('dolphin.wtranspose');
+      if ((!sh || sh[1] > 0) && sw && !(sw[0] === sw[1] && Number.isInteger(sw[0]))) out.add('dolphin.sweep');
+      return out;
+    },
+    // cc: the compiled creature; returns (values, note) => void, or null if nothing can change
+    snapper(cc) {
+      const iRate = cc.vKey.indexOf('dolphin.rate'), iFree = cc.vKey.indexOf('dolphin.freerate');
+      const iWt = cc.vKey.indexOf('dolphin.wtranspose'), iKt = cc.vKey.indexOf('dolphin.keytrack'), iSw = cc.vKey.indexOf('dolphin.sweep');
+      if (iRate < 0 && iFree < 0 && iWt < 0 && iSw < 0) return null;
+      const snap = cc.pitch.snap, ktLocked = cc.lockedValue['dolphin.keytrack'], wtLocked = cc.lockedValue['dolphin.wtranspose'] || 0;
+      return (v, note) => {
+        const kt = iKt >= 0 ? v[iKt] : ktLocked;
+        const keytrack = kt === undefined ? true : kt >= 0.5;
+        if (keytrack && iRate >= 0) {
+          const r = v[iRate];
+          if (mtof(note) * Math.pow(2, r) > PULSE_PITCH_HZ) v[iRate] = clamp((snap(note + 12 * r) - note) / 12, -6, 2);
+        } else if (!keytrack && iFree >= 0) {
+          const f = v[iFree];
+          if (f > PULSE_PITCH_HZ) v[iFree] = clamp(mtof(snap(ftom(f))), 1, 2000);
+        }
+        if (iWt >= 0) v[iWt] = clamp(snap(note + v[iWt]) - note, -24, 24);
+        if (iSw >= 0) {
+          const w = note + (iWt >= 0 ? v[iWt] : wtLocked);
+          v[iSw] = clamp((snap(w + 12 * v[iSw]) - w) / 12, -3, 3);
+        }
+      };
+    },
+  };
+
+  const SOURCES = {
+    throat: {
+      kind: 'source', id: 'throat', label: 'Throat', ns: 'throat', params: THROAT,
+      colors: ['var(--red)', 'var(--blue)'],
+      pitch: [40, 60],
+      pitchNote: 'Throat sings the notes as they are.',
+      defaults: { voicing: [0.85, 1], breathy: [0, 0.4], tense: [0, 0.3], creaky: [0, 0.2], thin: [0, 0.3], growl: [0, 0.1], jitter: [0.05, 0.2], shimmer: [0.05, 0.2], source: [0, 0] },
+      groups: [
+        { name: 'Voice', ids: ['voicing', 'breathy', 'tense', 'creaky', 'thin', 'growl'], c: 'var(--red)' },
+        { name: 'Irregularity', ids: ['jitter', 'shimmer'], c: 'var(--blue)' },
+        { name: 'Pulse shape', ids: ['source'], c: 'var(--blue)' },
+      ],
+      // holds one note; pitch moves through Transpose (±24 st) + Detune (±1 st), applied per block
+      create(sr, seed) {
+        const e = new (engines().ThroatEngine)(sr, seed);
+        for (const p of fixedOf(THROAT)) e.setParam(p.id, p.value);
+        e.setParam('glide', 0); e.setParam('detune', 0); e.setParam('transpose', 0);
+        let last = NaN;
+        return {
+          reach: 25, makeupDb: headroomOf(THROAT),
+          set: (id, v) => e.setParam(id, v),
+          noteOn: n => e.noteOn(n, 100), noteOff: n => e.noteOff(n),
+          setOffset(off) {
+            if (off === last) return; last = off;
+            const t = clamp(off, -24, 24);
+            e.setParam('transpose', t); e.setParam('detune', (off - t) * 100);
+          },
+          render: (out, n) => e.process(out, n),
+        };
+      },
+    },
+    dolphin: {
+      kind: 'source', id: 'dolphin', label: 'Dolphin', ns: 'dolphin', params: DOLPHIN,
+      colors: ['var(--blue)'],
+      pitch: [60, 84],
+      keySnap: dolphinKey,
+      defaults: {
+        rate: [-3, -1], keytrack: [1, 1], freerate: [13, 13], pattern: [0, 0], coda: [0, 0],
+        jitter: [0, 0.2], rubato: [0, 0.3], ornament: [0, 0], clicktone: [-0.5, 0.5], clickwidth: [0.1, 0.1],
+        ring: [0, 0.3], vowel: [0, 0.5], shape: [1, 4], sweep: [-1, 1.5], time: [0.3, 1.5],
+        wtranspose: [0, 0], harmonics: [1, 2], harmlevel: [-18, -8], register: [0.3, 0.9],
+        biphon: [0, 0.3], size: [0.2, 0.6], sizemode: [0, 0],
+      },
+      groups: [
+        { name: 'Pulses', ids: ['rate', 'keytrack', 'freerate', 'pattern', 'coda', 'jitter', 'rubato', 'ornament'], c: 'var(--blue)' },
+        { name: 'Clicks', ids: ['clicktone', 'clickwidth', 'ring', 'vowel'], c: 'var(--blue)' },
+        { name: 'Whistle', ids: ['shape', 'sweep', 'time', 'wtranspose', 'harmonics', 'harmlevel'], c: 'var(--blue)' },
+        { name: 'Blend', ids: ['register', 'biphon', 'size', 'sizemode'], c: 'var(--blue)' },
+      ],
+      // what the page says about pitch: the whistle sounds Size octaves above the note
+      pitchInfo(c, rangeOf, noteName) {
+        const sz = rangeOf('dolphin.size');
+        const k1 = Math.round(4 * (1 - sz[1])), k2 = Math.round(4 * (1 - sz[0]));
+        const oct = k1 === k2 ? '+' + k1 : '+' + k1 + ' to +' + k2;
+        return 'Dolphin: pulses follow the notes; the whistle sounds ' + oct + ' octaves higher (' +
+          noteName(c.pitch.low + 12 * k1) + '–' + noteName(Math.min(127, c.pitch.high + 12 * k2)) + ').';
+      },
+      // holds one note; pitch moves through the bend (range fixed at ±48 st); stereo summed to mono
+      create(sr, seed) {
+        const e = new (engines().DolphinEngine)(sr, seed);
+        for (const p of fixedOf(DOLPHIN)) e.setParam(p.id, p.value);
+        e.setParam('glide', 0); e.setParam('detune', 0);
+        const r = new Float32Array(32);
+        let last = NaN;
+        return {
+          reach: 48, makeupDb: headroomOf(DOLPHIN),
+          set: (id, v) => e.setParam(id, v),
+          noteOn: n => e.noteOn(n, 100), noteOff: n => e.noteOff(n),
+          setOffset(off) { if (off !== last) { last = off; e.setBend(off / 48); } },
+          render(out, n) {
+            const rr = r.length >= n ? r : new Float32Array(n);
+            e.process(out, rr, n);
+            for (let i = 0; i < n; i++) out[i] = (out[i] + rr[i]) * 0.5;
+          },
+        };
+      },
+    },
+  };
+
+  // ---------------- bodies ----------------
+
+  const TUBE = [
+    P('tongueX', 'Tongue front–back', 0, 1, 0.55, R),
+    P('tongueY', 'Tongue close–open', 0, 1, 0.7, R),
+    P('tip', 'Tip', 0, 1, 0, R),
+    P('jaw', 'Jaw', 0, 1, 0.3, R),
+    P('lips', 'Lips', 0, 1, 0.6, R),
+    P('round', 'Round', 0, 1, 0, R),
+    P('nasal', 'Nasal', 0, 1, 0, R),
+    P('length', 'Length', 7, 35, 17, R, { unit: 'cm' }),
+    P('damping', 'Damping', 0, 1, 0.5, R),
+    P('spread', 'Spread', 0, 1, 0, F, { value: 0 }),
+    P('radiation', 'Radiation', 0, 1, 1, F, { value: 1 }),
+    P('mix', 'Mix', 0, 1, 1, F, { value: 1 }),
+    P('output', 'Output', -24, 12, 0, F, { value: -18, headroom: true }),
+  ];
+  // The tube can add 20 dB or more of peak gain (clicks ringing its resonances), so it's fed this
+  // much lower and the makeup adds it back. It's linear, so only headroom changes.
+  const TUBE_TRIM_DB = -24;
+
+  const BODIES = {
+    none: {
+      kind: 'body', id: 'none', label: 'None', ns: null, params: [], defaults: {}, groups: [], colors: [],
+      create: () => null,
+    },
+    tube: {
+      kind: 'body', id: 'tube', label: 'Mouth', ns: 'tube', params: TUBE, colors: ['var(--purple)'],
+      view: 'tube',                     // the page draws the tract and the vowel pad for this body
+      defaults: { tongueX: [0.2, 0.8], tongueY: [0.3, 0.9], tip: [0, 0], jaw: [0.2, 0.6], lips: [0.4, 0.9], round: [0, 0.5], nasal: [0, 0.15], length: [14, 20], damping: [0.4, 0.6] },
+      groups: [{ name: 'Tract', ids: ['tongueX', 'tongueY', 'tip', 'jaw', 'lips', 'round', 'nasal', 'length', 'damping'], c: 'var(--purple)' }],
+      create(sr) {
+        const t = new (engines().MouthTube)(sr);
+        for (const p of fixedOf(TUBE)) t.setParam(p.id, p.value);
+        const trim = db2lin(TUBE_TRIM_DB), scratch = new Float32Array(32);
+        return {
+          makeupDb: headroomOf(TUBE) - TUBE_TRIM_DB,
+          set: (id, v) => t.setParam(id, v),
+          snap: () => t.snap(),
+          process(inp, out, n) {
+            for (let i = 0; i < n; i++) inp[i] *= trim;
+            t.process(inp, null, out, scratch.length >= n ? scratch : new Float32Array(n), n);   // null: one channel only
+          },
+        };
+      },
+    },
+  };
+
+  // Loudness calibration (dB) per source + body, so Level 0 is about -20 dBFS RMS while calling
+  // for each species default. Measured with tools/calibrate.js; a new part needs its own entry.
+  const CALIBRATION_DB = { 'throat+none': 4.7, 'throat+tube': -7.4, 'dolphin+none': -0.6, 'dolphin+tube': -32.1 };
+
+  const api = { SOURCES, BODIES, CALIBRATION_DB, TUBE_TRIM_DB, P };
+  if (inNode) module.exports = api;
+  else K.parts = api;
+})(typeof self !== 'undefined' ? self : this);
+
 // ---- src/creature.js
 /*
  * krill · creature format
  *
- * A creature is a source engine (Throat or Dolphin), optionally through mouth-tube, plus ranges
- * for every parameter that shapes its sound, a call grammar, a signature and a manner.
+ * A creature is a source (Throat, Dolphin…) through a body (none, Mouth…), plus ranges for every
+ * parameter that shapes its sound, a call grammar, a signature, a manner and an output filter.
+ * The parts and their parameter tables live in parts.js.
  * This file owns:
  *   - the parameter table for each engine (what Krill may range, what it fixes, how values roll),
  *   - creature defaults per species,
@@ -4386,107 +4867,24 @@ self.onmessage = e => {
   'use strict';
 
   const FORMAT = 'krill-creature';
-  const VERSION = 1;
+  const VERSION = 2;             // 2: `body` replaces `mouth`, tube parameters are 'tube.*', output filter
 
-  // ---------- engine parameter tables ----------
-  // use: 'range' = the creature gives it a range (locked = min equal to max)
-  //      'fixed' = Krill sets it once to `value` and never touches it again
-  //      'krill' = Krill drives it from the score (pitch, envelope, glide), not from ranges. Pitch: the
-  //                voice holds one note and moves it with Throat's Transpose + Detune or Dolphin's
-  //                bend, so contours and free-mode cents are exact
-  // scale: how a 0–1 position maps into a range: 'lin', 'log' (ratios) or 'sq' (fine near the low end)
-  // step: 1 for whole-number (menu or switch) parameters
-  // headroom: output gains Krill turns down so the engines' own ±1 output clamps never touch the
-  //           sound; the voice adds the same amount back afterwards (see voice.js)
-  const R = 'range', F = 'fixed', K = 'krill';
-  function P(id, label, min, max, def, use, opt) {
-    const o = { id, label, min, max, def, use, scale: 'lin', step: 0, unit: '', value: def };
-    if (opt) for (const k in opt) o[k] = opt[k];
-    return o;
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const PARTS = inNode ? require('./parts.js') : (root.Krill || {}).parts;
+
+  // ---------- parameter tables, from the parts ----------
+  const R = 'range';
+  const ENGINES = {};            // namespace → parameter table ('throat', 'dolphin', 'tube', …)
+  const PART_OF = {};            // namespace → part
+  for (const group of [PARTS.SOURCES, PARTS.BODIES]) for (const id in group) {
+    const part = group[id];
+    if (part.ns) { ENGINES[part.ns] = part.params; PART_OF[part.ns] = part; }
   }
-
-  const ENGINES = {
-    throat: [
-      P('voicing', 'Voicing', 0, 1, 1, R),
-      P('breathy', 'Breathy', 0, 1, 0, R),
-      P('tense', 'Tense', 0, 1, 0, R),
-      P('creaky', 'Creaky', 0, 1, 0, R),
-      P('thin', 'Thin', 0, 1, 0, R),
-      P('growl', 'Growl', 0, 1, 0, R),
-      P('jitter', 'Jitter', 0, 1, 0, R),
-      P('shimmer', 'Shimmer', 0, 1, 0, R),
-      P('source', 'Source', 0, 1, 0, R, { step: 1, options: ['Flow', 'Derivative'] }),
-      P('transpose', 'Transpose', -24, 24, 0, K),
-      P('detune', 'Detune', -100, 100, 0, K),
-      P('mode', 'Mode', 0, 1, 0, F, { value: 0 }),
-      P('glide', 'Glide', 0, 2, 0.06, K),
-      P('attack', 'Attack', 0.001, 5, 0.02, K),
-      P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
-      P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
-      P('release', 'Release', 0.001, 8, 0.25, K),
-      P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
-    ],
-    dolphin: [
-      P('rate', 'Rate', -6, 2, -2, R, { unit: 'oct' }),
-      P('keytrack', 'Key track', 0, 1, 1, R, { step: 1, options: ['Off', 'On'] }),
-      P('freerate', 'Free rate', 1, 2000, 13, R, { scale: 'log', unit: '/s' }),
-      P('sync', 'Sync', 0, 1, 0, F, { step: 1, value: 0 }),
-      P('pattern', 'Pattern', 0, 3, 0, R, { step: 1, options: ['Regular', 'Increasing', 'Decreasing', 'Grouped'] }),
-      P('coda', 'Coda', 0, 16, 0, R, { step: 1 }),
-      P('jitter', 'Jitter', 0, 1, 0.05, R),
-      P('rubato', 'Rubato', 0, 1, 0, R),
-      P('ornament', 'Ornament', 0, 1, 0, R),
-      P('clicktone', 'Click tone', -2, 2, 0, R, { unit: 'oct' }),
-      P('clickwidth', 'Click width', 0.05, 0.5, 0.1, R, { scale: 'log', unit: 'ms' }),
-      P('ring', 'Ring', 0, 1, 0, R),
-      P('vowel', 'Vowel', 0, 1, 0, R),
-      P('pitchmode', 'Pitch mode', 0, 1, 0, F, { step: 1, value: 0 }),
-      P('shape', 'Shape', 0, 5, 1, R, { step: 1, options: ['Flat', 'Up', 'Down', 'Convex', 'Concave', 'Wave'] }),
-      P('sweep', 'Sweep', -3, 3, 1.4, R, { unit: 'oct' }),
-      P('time', 'Time', 0.05, 4, 1, R, { scale: 'log', unit: 's' }),
-      P('pitch', 'Pitch', -3, 3, 0, F, { value: 0 }),
-      P('wtranspose', 'Whistle transpose', -24, 24, 0, R, { step: 1, unit: 'st' }),
-      P('harmonics', 'Harmonics', 0, 3, 1, R, { step: 1 }),
-      P('harmlevel', 'Harmonic level', -24, 0, -12, R, { unit: 'dB' }),
-      P('register', 'Register', 0, 1, 0.5, R),
-      P('biphon', 'Biphonation', 0, 1, 0, R),
-      P('spread', 'Spread', 0, 1, 0.3, F, { value: 0 }),
-      P('size', 'Size', 0, 1, 0, R),
-      P('sizemode', 'Size mode', 0, 1, 0, R, { step: 1, options: ['Octaves', 'Continuous'] }),
-      P('mode', 'Mode', 0, 1, 1, F, { step: 1, value: 0 }),
-      P('glide', 'Glide', 0, 2, 0.06, K),
-      P('transpose', 'Transpose', -24, 24, 0, F, { step: 1, value: 0 }),
-      P('detune', 'Detune', -100, 100, 0, K),
-      P('bendrange', 'Bend range', 2, 48, 12, F, { step: 1, value: 48 }),
-      P('attack', 'Attack', 0.001, 5, 0.01, K),
-      P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
-      P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
-      P('release', 'Release', 0.001, 8, 0.3, K),
-      P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
-    ],
-    mouth: [
-      P('tongueX', 'Tongue front–back', 0, 1, 0.55, R),
-      P('tongueY', 'Tongue close–open', 0, 1, 0.7, R),
-      P('tip', 'Tip', 0, 1, 0, R),
-      P('jaw', 'Jaw', 0, 1, 0.3, R),
-      P('lips', 'Lips', 0, 1, 0.6, R),
-      P('round', 'Round', 0, 1, 0, R),
-      P('nasal', 'Nasal', 0, 1, 0, R),
-      P('length', 'Length', 7, 35, 17, R, { unit: 'cm' }),
-      P('damping', 'Damping', 0, 1, 0.5, R),
-      P('spread', 'Spread', 0, 1, 0, F, { value: 0 }),
-      P('radiation', 'Radiation', 0, 1, 1, F, { value: 1 }),
-      P('mix', 'Mix', 0, 1, 1, F, { value: 1 }),
-      P('output', 'Output', -24, 12, 0, F, { value: -18, headroom: true }),
-    ],
-  };
-  // Dolphin LFOs: all four stay off (target None); Krill moves parameters itself
-  for (let i = 1; i <= 4; i++) ENGINES.dolphin.push(P('lfo' + i + 'target', 'LFO ' + i + ' target', 0, 28, 0, F, { step: 1, value: 0 }));
-
-  const BY_KEY = {};              // 'throat.breathy' → spec (with .engine and .key)
+  const BY_KEY = {};             // 'throat.breathy' → spec (with .engine and .key)
   for (const eng in ENGINES) for (const s of ENGINES[eng]) { s.engine = eng; s.key = eng + '.' + s.id; BY_KEY[s.key] = s; }
 
-  const SOURCES = ['throat', 'dolphin'];
+  const SOURCES = Object.keys(PARTS.SOURCES);
+  const BODIES = Object.keys(PARTS.BODIES);
   const EVOLVE = ['steady', 'rise', 'fall', 'arc', 'wander'];
 
   // ---------- position ↔ value ----------
@@ -4534,29 +4932,11 @@ self.onmessage = e => {
     { path: 'manner.pan', kind: 'num', min: -1, max: 1, def: 0 },
     { path: 'manner.wander', kind: 'num', min: 0, max: 1, def: 0.2 },
     { path: 'manner.level', kind: 'num', min: -48, max: 6, def: -6, unit: 'dB' },
+    { path: 'filter.on', kind: 'bool', def: false },
+    { path: 'filter.cutoff', kind: 'num', min: 200, max: 20000, def: 8000, scale: 'log', unit: 'Hz' },
   ];
   const FIELD = {};
   for (const f of FIELDS) FIELD[f.path] = f;
-
-  // ---------- species defaults ----------
-  const DEFAULT_RANGES = {
-    throat: {
-      voicing: [0.85, 1], breathy: [0, 0.4], tense: [0, 0.3], creaky: [0, 0.2], thin: [0, 0.3],
-      growl: [0, 0.1], jitter: [0.05, 0.2], shimmer: [0.05, 0.2], source: [0, 0],
-    },
-    dolphin: {
-      rate: [-3, -1], keytrack: [1, 1], freerate: [13, 13], pattern: [0, 0], coda: [0, 0],
-      jitter: [0, 0.2], rubato: [0, 0.3], ornament: [0, 0], clicktone: [-0.5, 0.5], clickwidth: [0.1, 0.1],
-      ring: [0, 0.3], vowel: [0, 0.5], shape: [1, 4], sweep: [-1, 1.5], time: [0.3, 1.5],
-      wtranspose: [0, 0], harmonics: [1, 2], harmlevel: [-18, -8], register: [0.3, 0.9],
-      biphon: [0, 0.3], size: [0.2, 0.6], sizemode: [0, 0],
-    },
-    mouth: {
-      tongueX: [0.2, 0.8], tongueY: [0.3, 0.9], tip: [0, 0], jaw: [0.2, 0.6], lips: [0.4, 0.9],
-      round: [0, 0.5], nasal: [0, 0.15], length: [14, 20], damping: [0.4, 0.6],
-    },
-  };
-  const DEFAULT_PITCH = { throat: [40, 60], dolphin: [60, 84] };
 
   function getPath(o, path) {
     const parts = path.split('.');
@@ -4574,28 +4954,40 @@ self.onmessage = e => {
   function clone(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
   function clampNum(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-  // a fresh creature of one species
-  function defaults(source, mouth, opts) {
-    source = SOURCES.includes(source) ? source : 'throat';
-    mouth = !!mouth;
+  // a fresh creature of one species: a source and a body ('none' for a raw source)
+  function defaults(source, body, opts) {
+    source = SOURCES.includes(source) ? source : SOURCES[0];
+    body = BODIES.includes(body) ? body : 'none';
     const c = {
       format: FORMAT, version: VERSION,
       name: (opts && opts.name) || 'Unnamed',
       seed: (opts && Number.isInteger(opts.seed)) ? opts.seed >>> 0 : 1,
-      source, mouth,
-      pitch: {}, ranges: {}, morph: 0, call: {}, signature: {}, manner: {},
+      source, body,
+      pitch: {}, ranges: {}, morph: 0, call: {}, signature: {}, manner: {}, filter: {},
     };
     for (const f of FIELDS) setPath(c, f.path, clone(f.def));
-    c.pitch.low = DEFAULT_PITCH[source][0];
-    c.pitch.high = DEFAULT_PITCH[source][1];
-    for (const id in DEFAULT_RANGES[source]) c.ranges[source + '.' + id] = DEFAULT_RANGES[source][id].slice();
-    if (mouth) for (const id in DEFAULT_RANGES.mouth) c.ranges['mouth.' + id] = DEFAULT_RANGES.mouth[id].slice();
+    const src = PARTS.SOURCES[source], bod = PARTS.BODIES[body];
+    c.pitch.low = src.pitch[0];
+    c.pitch.high = src.pitch[1];
+    for (const part of [src, bod]) for (const id in part.defaults) c.ranges[part.ns + '.' + id] = part.defaults[id].slice();
     return c;
   }
 
   // ---------- migration ----------
   // MIGRATIONS[n] turns a version n creature into version n + 1
-  const MIGRATIONS = {};
+  const MIGRATIONS = {
+    // 1 → 2: `mouth: true/false` becomes `body: 'tube' | 'none'`; 'mouth.*' ranges become 'tube.*'
+    1(o) {
+      if (o.body == null) o.body = o.mouth ? 'tube' : 'none';
+      delete o.mouth;
+      if (o.ranges && typeof o.ranges === 'object') {
+        const r = {};
+        for (const k in o.ranges) r[k.startsWith('mouth.') ? 'tube.' + k.slice(6) : k] = o.ranges[k];
+        o.ranges = r;
+      }
+      return o;
+    },
+  };
 
   // ---------- validation ----------
   // Returns { creature, warnings }. Throws only if the input is not a creature at all.
@@ -4614,20 +5006,20 @@ self.onmessage = e => {
     o.format = FORMAT;
     o.version = VERSION;
 
-    if (!SOURCES.includes(o.source)) { if (o.source != null) warn.push('Unknown source "' + o.source + '", using throat'); o.source = 'throat'; }
-    o.mouth = !!o.mouth;
+    if (!SOURCES.includes(o.source)) { if (o.source != null) warn.push('Unknown source "' + o.source + '", using ' + SOURCES[0]); o.source = SOURCES[0]; }
+    if (!BODIES.includes(o.body)) { if (o.body != null) warn.push('Unknown body "' + o.body + '", using none'); o.body = 'none'; }
     if (typeof o.name !== 'string' || !o.name.trim()) { o.name = 'Unnamed'; }
     o.name = o.name.trim().slice(0, 40);
     o.seed = Number.isFinite(o.seed) ? Math.floor(Math.abs(o.seed)) >>> 0 : 1;
 
-    const base = defaults(o.source, o.mouth);
+    const base = defaults(o.source, o.body);
     for (const f of FIELDS) {
       const raw = getPath(o, f.path);
       setPath(o, f.path, fixField(f, raw, getPath(base, f.path), warn));
     }
     if (o.pitch.low > o.pitch.high) { const t = o.pitch.low; o.pitch.low = o.pitch.high; o.pitch.high = t; warn.push('pitch.low was above pitch.high; swapped'); }
 
-    // ranges: keep every entry (a mouth range survives switching the mouth off), repair the known ones
+    // ranges: keep every entry (a body's ranges survive switching to another body), repair the known ones
     const ranges = (o.ranges && typeof o.ranges === 'object' && !Array.isArray(o.ranges)) ? o.ranges : {};
     o.ranges = {};
     for (const key in ranges) {
@@ -4673,8 +5065,7 @@ self.onmessage = e => {
   // the parameter specs a creature actually uses, in engine order: [{ spec, lo, hi, locked }]
   function activeParams(c) {
     const out = [];
-    const engines = c.mouth ? [c.source, 'mouth'] : [c.source];
-    for (const eng of engines) for (const s of ENGINES[eng]) {
+    for (const eng of namespaces(c)) for (const s of ENGINES[eng]) {
       if (s.use !== R) continue;
       const r = c.ranges[s.key];
       const lo = r ? r[0] : s.def, hi = r ? r[1] : s.def;
@@ -4683,10 +5074,24 @@ self.onmessage = e => {
     return out;
   }
 
+  // parameter namespaces a creature uses: its source's, then its body's (if the body has any)
+  function namespaces(c) {
+    const out = [PARTS.SOURCES[c.source].ns];
+    const b = PARTS.BODIES[c.body];
+    if (b && b.ns) out.push(b.ns);
+    return out;
+  }
+  // 'throat+tube': the key for calibration and labels
+  const species = c => c.source + '+' + c.body;
+  function speciesLabel(c) {
+    const b = PARTS.BODIES[c.body];
+    return PARTS.SOURCES[c.source].label + (b && b.ns ? ' + ' + b.label : '');
+  }
+
   // ---------- files ----------
   // Stable key order; ranges listed in engine order, unknown ones after. Unknown top-level keys kept.
   function serialise(c) {
-    const order = ['format', 'version', 'name', 'seed', 'source', 'mouth', 'pitch', 'ranges', 'morph', 'call', 'signature', 'manner'];
+    const order = ['format', 'version', 'name', 'seed', 'source', 'body', 'pitch', 'ranges', 'morph', 'call', 'signature', 'manner', 'filter'];
     const out = {};
     for (const k of order) if (k in c) out[k] = c[k];
     const ranges = {};
@@ -4714,7 +5119,7 @@ self.onmessage = e => {
   }
 
   const api = {
-    FORMAT, VERSION, ENGINES, BY_KEY, SOURCES, EVOLVE, FIELDS, FIELD,
+    FORMAT, VERSION, ENGINES, BY_KEY, SOURCES, BODIES, PARTS, PART_OF, EVOLVE, FIELDS, FIELD, namespaces, species, speciesLabel,
     defaults, normalise, serialise, fileName, activeParams, randomName, valueAt, positionOf,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -5040,49 +5445,29 @@ self.onmessage = e => {
  * renders until Call, Signature or Render. Renders run in a worker so the page stays responsive.
  * Efficiency: the LCD's spectrogram and tube are drawn only when a call arrives or the window
  * resizes; while a call plays, only the playhead layer and the tube redraw (one rAF loop that
- * stops with the sound). The Mouth panel isn't updated while the creature has no mouth.
+ * stops with the sound). Source and body panels are built from parts.js, so a new part shows up
+ * here without page changes; the body panel isn't updated while the creature has no body.
  */
 (function () {
   'use strict';
-  const K = window.Krill, C = K.creature, S = K.scales, kit = K.kit, el = kit.el;
+  const K = window.Krill, C = K.creature, S = K.scales, kit = K.kit, el = kit.el, PARTS = K.parts;
   const { Rng } = K.rng;
   const SR = 48000;
   const STORE = 'krill.creature.v1', STORE_PITCH = 'krill.previewPitch.v1';
-  const COL = { throat: 'var(--red)', throat2: 'var(--blue)', dolphin: 'var(--blue)', mouth: 'var(--purple)', krill: 'var(--graphite)' };
-
-  const GROUPS = {
-    throat: [
-      { name: 'Voice', ids: ['voicing', 'breathy', 'tense', 'creaky', 'thin', 'growl'], c: COL.throat },
-      { name: 'Irregularity', ids: ['jitter', 'shimmer'], c: COL.throat2 },
-      { name: 'Pulse shape', ids: ['source'], c: COL.throat2 },
-    ],
-    dolphin: [
-      { name: 'Pulses', ids: ['rate', 'keytrack', 'freerate', 'pattern', 'coda', 'jitter', 'rubato', 'ornament'], c: COL.dolphin },
-      { name: 'Clicks', ids: ['clicktone', 'clickwidth', 'ring', 'vowel'], c: COL.dolphin },
-      { name: 'Whistle', ids: ['shape', 'sweep', 'time', 'wtranspose', 'harmonics', 'harmlevel'], c: COL.dolphin },
-      { name: 'Blend', ids: ['register', 'biphon', 'size', 'sizemode'], c: COL.dolphin },
-    ],
-  };
-  const TITLES = {
-    'dolphin.rate': 'Pulse rate in octaves from the note (when Key track is on)',
-    'dolphin.freerate': 'Pulse rate in pulses per second (when Key track is off)',
-    'dolphin.register': '0% pulses only … 100% whistle only',
-    'dolphin.size': 'Small sounds higher: the whistle sits up to 4 octaves above the note',
-    'throat.voicing': '0% breath only … 100% fully voiced',
-  };
+  const COL = { krill: 'var(--graphite)' };
 
   // ---------- state ----------
-  let creature = C.defaults('dolphin', false), dirty = false;   // replaced at start-up by the saved or first example creature
+  let creature = C.defaults('dolphin', 'none'), dirty = false;   // replaced at start-up by the saved or first example creature
   let previewPitch = { mode: 'key', root: 'D', scale: 'minor' };
   let seed = 1;                               // preview seed: each Call takes the next one
   const controls = [];                        // { show } for refreshAll
-  let sourceControls = [], mouthControls = [], pad = null;
+  let sourceControls = [], bodyControls = [], pad = null;
 
   function load(c) {
     const r = C.normalise(c);
     creature = r.creature;
     dirty = false;
-    buildSource();
+    buildSource(); buildBody();
     refreshAll();
     save();
     return r.warnings;
@@ -5101,26 +5486,25 @@ self.onmessage = e => {
   function randomSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return (Math.random() * 4294967296) >>> 0; } }
   function showMark() {
     const m = document.getElementById('mark'); m.textContent = '';
-    const cols = creature.source === 'throat' ? ['var(--red)', 'var(--blue)'] : ['var(--blue)'];
-    if (creature.mouth) cols.push('var(--purple)');
+    const cols = PARTS.SOURCES[creature.source].colors.concat(PARTS.BODIES[creature.body].colors);
     for (const c of cols) { const i = el('i'); i.style.background = c; m.appendChild(i); }
   }
 
   // ---------- species and pitch ----------
   const gSpecies = document.getElementById('g-species');
   controls.push(kit.Seg(gSpecies, {
-    label: 'Source', options: [['throat', 'Throat'], ['dolphin', 'Dolphin']],
+    label: 'Source', options: C.SOURCES.map(id => [id, PARTS.SOURCES[id].label]),
     get: () => creature.source,
     set: v => { creature.source = v; fillDefaults(); buildSource(); refreshAll(); changed(); },
   }));
   controls.push(kit.Seg(gSpecies, {
-    label: 'Mouth', options: [[true, 'On'], [false, 'Off']],
-    get: () => creature.mouth,
-    set: v => { creature.mouth = v; fillDefaults(); refreshAll(); changed(); },
+    label: 'Body', options: C.BODIES.map(id => [id, PARTS.BODIES[id].label]),
+    get: () => creature.body,
+    set: v => { creature.body = v; fillDefaults(); buildBody(); refreshAll(); changed(); },
   }));
-  // a newly chosen engine starts from the species defaults for any range the creature doesn't have
+  // a newly chosen part starts from its defaults for any range the creature doesn't have yet
   function fillDefaults() {
-    const d = C.defaults(creature.source, true);
+    const d = C.defaults(creature.source, creature.body);
     for (const k in d.ranges) if (!creature.ranges[k]) creature.ranges[k] = d.ranges[k];
   }
   const gPitch = document.getElementById('g-pitch');
@@ -5137,13 +5521,8 @@ self.onmessage = e => {
   }));
   const pitchNote = document.getElementById('pitchNote');
   function showPitchNote() {
-    if (creature.source !== 'dolphin') { pitchNote.textContent = 'Throat sings the notes as they are.'; return; }
-    const sz = R('dolphin.size'), sm = R('dolphin.sizemode');
-    const k1 = Math.round(4 * (1 - sz[1])), k2 = Math.round(4 * (1 - sz[0]));
-    const lo = creature.pitch.low + 12 * k1, hi = creature.pitch.high + 12 * k2;
-    const oct = k1 === k2 ? '+' + k1 : '+' + k1 + ' to +' + k2;
-    pitchNote.textContent = 'Dolphin: pulses follow the notes; the whistle sounds ' + oct + ' octaves higher (' +
-      S.noteName(lo) + '–' + S.noteName(Math.min(127, hi)) + ')' + (sm[1] >= 0.5 && previewPitch.mode !== 'key' ? ', or anywhere between with continuous Size.' : '.');
+    const src = PARTS.SOURCES[creature.source];
+    pitchNote.textContent = src.pitchInfo ? src.pitchInfo(creature, R, n => S.noteName(n)) : (src.pitchNote || '');
   }
 
   // ---------- source ranges (rebuilt when the source changes) ----------
@@ -5151,51 +5530,50 @@ self.onmessage = e => {
   function buildSource() {
     gSource.textContent = '';
     sourceControls = [];
-    const src = creature.source;
-    document.getElementById('srcTitle').textContent = src === 'throat' ? 'Throat' : 'Dolphin';
-    document.getElementById('srcDot').style.background = src === 'throat' ? 'var(--red)' : 'var(--blue)';
-    for (const g of GROUPS[src]) {
+    const part = PARTS.SOURCES[creature.source];
+    document.getElementById('srcTitle').textContent = part.label;
+    document.getElementById('srcDot').style.background = part.colors[0];
+    groupsInto(gSource, part, sourceControls);
+  }
+  function groupsInto(host, part, list) {
+    for (const g of part.groups) {
       const fs = el('fieldset'), lg = el('legend'), dot = el('span', 'dot');
       dot.style.background = g.c; lg.append(dot, document.createTextNode(g.name)); fs.appendChild(lg);
       const box = el('div', 'ranges'); fs.appendChild(box);
-      for (const id of g.ids) sourceControls.push(rangeFor(box, src + '.' + id, g.c));
-      gSource.appendChild(fs);
+      for (const id of g.ids) list.push(rangeFor(box, part.ns + '.' + id, g.c));
+      host.appendChild(fs);
     }
   }
   function rangeFor(host, key, c) {
     const s = C.BY_KEY[key];
     return kit.Range(host, {
       name: s.label, min: s.min, max: s.max, scale: s.scale, step: s.step, options: s.options, unit: s.unit, c,
-      round: s.step ? 0 : (s.max - s.min) / 1000, title: TITLES[key],
+      round: s.step ? 0 : (s.max - s.min) / 1000, title: s.title,
       get: () => R(key),
       set: v => {
         creature.ranges[key] = v;
-        if (key.startsWith('dolphin.size')) showPitchNote();
-        if (key === 'mouth.tongueX' || key === 'mouth.tongueY') pad.show();
+        showPitchNote();
+        if (pad && (key === 'tube.tongueX' || key === 'tube.tongueY')) pad.show();
         changed();
       },
     });
   }
 
-  // ---------- mouth ----------
-  const mouthFs = document.getElementById('fsMouth'), mouthPadBox = document.getElementById('padBox');
+  // ---------- body (rebuilt when the body changes) ----------
+  const gBody = document.getElementById('g-body'), padBox = document.getElementById('padBox');
   pad = kit.Pad(document.getElementById('pad'), {
-    get: () => ({ x: R('mouth.tongueX'), y: R('mouth.tongueY') }),
-    set: (x, y) => { creature.ranges['mouth.tongueX'] = x; creature.ranges['mouth.tongueY'] = y; for (const m of mouthControls.slice(0, 2)) m.show(); changed(); },
+    get: () => ({ x: R('tube.tongueX'), y: R('tube.tongueY') }),
+    set: (x, y) => { creature.ranges['tube.tongueX'] = x; creature.ranges['tube.tongueY'] = y; for (const m of bodyControls) m.show(); changed(); },
   });
-  {
-    const box = document.getElementById('g-mouth');
-    for (const id of ['tongueX', 'tongueY', 'tip', 'jaw', 'lips', 'round', 'nasal', 'length', 'damping']) {
-      const r = rangeFor(box, 'mouth.' + id, COL.mouth);
-      mouthControls.push(r);
-    }
-  }
-  function showMouthEnabled() {
-    const on = creature.mouth;
-    mouthFs.disabled = !on;
-    mouthPadBox.style.opacity = on ? '' : '.45';
-    mouthPadBox.style.pointerEvents = on ? '' : 'none';
-    document.getElementById('mouthOff').hidden = on;
+  function buildBody() {
+    gBody.textContent = '';
+    bodyControls = [];
+    const part = PARTS.BODIES[creature.body];
+    document.getElementById('bodyTitle').textContent = part.ns ? part.label : 'Body';
+    document.getElementById('bodyDot').style.background = part.colors[0] || 'var(--graphite)';
+    groupsInto(gBody, part, bodyControls);
+    padBox.hidden = part.view !== 'tube';                  // the vowel pad belongs to the tube
+    document.getElementById('bodyOff').hidden = !!part.ns;
   }
 
   // ---------- call, signature, manner ----------
@@ -5233,7 +5611,14 @@ self.onmessage = e => {
     knob2(mk, 'manner.pan', 'Pan', { fmt: v => Math.abs(v) < 0.005 ? 'C' : (v < 0 ? 'L ' : 'R ') + Math.round(Math.abs(v) * 100) });
     knob2(mk, 'manner.wander', 'Wander', { title: 'How far it drifts around its pan position' });
     knob2(mk, 'manner.level', 'Level', { fmt: v => (+v.toFixed(1)) + ' dB', title: 'Calibrated: 0 dB is about -20 dBFS RMS while calling, for every species' });
+    const ok = document.getElementById('g-out');
+    controls.push(kit.Seg(ok, { label: 'Low-pass', options: [[false, 'Off'], [true, 'On']], get: path('filter.on').get, set: v => { creature.filter.on = v; showFilter(); changed(); } }));
+    const f = F['filter.cutoff'];
+    controls.push(kit.Knob(ok, { name: 'Cutoff', min: f.min, max: f.max, def: f.def, scale: 'log', c: COL.krill,
+      fmt: v => v >= 1000 ? (+(v / 1000).toFixed(1)) + ' kHz' : Math.round(v) + ' Hz', title: '24 dB/oct, at the end of the creature: tames noise and loud highs',
+      get: path('filter.cutoff').get, set: v => { creature.filter.cutoff = Math.round(v); changed(); } }));
   }
+  function showFilter() { document.getElementById('g-out').classList.toggle('off', !creature.filter.on); }
   document.getElementById('sigRoll').addEventListener('click', () => { creature.seed = randomSeed(); changed(); showSeed(); run('signature'); });
   const showSeed = () => { document.getElementById('sigSeed').textContent = 'Seed ' + creature.seed; };
 
@@ -5241,8 +5626,9 @@ self.onmessage = e => {
     showName(); showMark();
     for (const c of controls) c.show();
     for (const c of sourceControls) c.show();
-    if (creature.mouth) { for (const c of mouthControls) c.show(); pad.show(); }
-    showMouthEnabled(); showPitchNote(); showSeed();
+    for (const c of bodyControls) c.show();
+    if (PARTS.BODIES[creature.body].view === 'tube') pad.show();
+    showPitchNote(); showSeed(); showFilter();
   }
 
   // ---------- preview key ----------
@@ -5378,7 +5764,7 @@ self.onmessage = e => {
   const exMenu = document.getElementById('exMenu');
   for (const ex of (window.KRILL_EXAMPLES || [])) {
     const b = el('button', 'it'); b.type = 'button';
-    b.append(document.createTextNode(ex.name), el('small', null, ex.source + (ex.mouth ? ' + tube' : '')));
+    b.append(document.createTextNode(ex.name), el('small', null, C.speciesLabel(C.normalise(ex).creature)));
     b.addEventListener('click', () => { exMenu.hidden = true; load(ex); dirty = false; showName(); setStatus('Example ' + ex.name + ' loaded'); });
     exMenu.appendChild(b);
   }
@@ -5386,8 +5772,8 @@ self.onmessage = e => {
   document.addEventListener('click', e => { if (!exMenu.contains(e.target)) exMenu.hidden = true; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') exMenu.hidden = true; });
   document.getElementById('new').addEventListener('click', () => {
-    const c = C.defaults(creature.source, creature.mouth, { name: C.randomName(new Rng(randomSeed())), seed: randomSeed() % 100000 });
-    load(c); dirty = true; showName(); setStatus('New ' + creature.source + (creature.mouth ? ' + tube' : '') + ' creature');
+    const c = C.defaults(creature.source, creature.body, { name: C.randomName(new Rng(randomSeed())), seed: randomSeed() % 100000 });
+    load(c); dirty = true; showName(); setStatus('New ' + C.speciesLabel(creature) + ' creature');
   });
   // space bar plays a call when no control has focus
   document.addEventListener('keydown', e => {
@@ -5474,14 +5860,14 @@ self.onmessage = e => {
   function drawTube(t) {
     const lbl = document.getElementById('tubeLbl');
     const g = fit(tubeC), W = tubeC.width, H = tubeC.height, d = window.devicePixelRatio || 1;
-    if (!last) { g.fillStyle = '#060608'; g.fillRect(0, 0, W, H); lbl.textContent = creature.mouth ? 'TUBE' : 'PITCH'; return; }
+    if (!last) { g.fillStyle = '#060608'; g.fillRect(0, 0, W, H); lbl.textContent = PARTS.BODIES[creature.body].view === 'tube' ? 'TUBE' : 'PITCH'; return; }
     const { u, i, f } = unitAt(t < 0 ? 0 : t);
-    if (!last.call.units[0].mouth) { drawPitch(g, W, H, d, t); lbl.textContent = 'PITCH'; return; }
-    const key = i + ':' + (u.mouth.start === u.mouth.end ? 0 : Math.round(f * 60)) + ':' + W;
+    if (last.call.bodyView !== 'tube') { drawPitch(g, W, H, d, t); lbl.textContent = 'PITCH'; return; }
+    const key = i + ':' + Math.round(f * 60) + ':' + W;
     if (key === tubeKey) return;                 // nothing changed since the last frame
     tubeKey = key;
     lbl.textContent = 'TUBE';
-    const a = u.mouth.start, b = u.mouth.end, s = {};
+    const a = u.body.start, b = u.body.end, s = {};
     for (const k in a) s[k] = a[k] + (b[k] - a[k]) * f;
     s.spread = 0;
     const nasal = window.MouthTube.shape(s, dBuf, 0);
@@ -5500,7 +5886,7 @@ self.onmessage = e => {
     g.fillText('LIPS', x1 - 26 * d, H - 8 * d);
     g.fillText(s.length.toFixed(1) + ' CM · UNIT ' + (i + 1) + '/' + last.call.units.length, x0 + 70 * d, H - 8 * d);
     // tongue positions of every unit on the pad
-    if (creature.mouth && t < 0) pad.showPoints(last.call.units.map(v => ({ x: v.mouth.start.tongueX, y: v.mouth.start.tongueY })));
+    if (t < 0 && PARTS.BODIES[creature.body].view === 'tube') pad.showPoints(last.call.units.map(v => ({ x: v.body.start.tongueX, y: v.body.start.tongueY })));
   }
   function drawPitch(g, W, H, d, t) {
     const key = 'p:' + W + ':' + (t < 0 ? -1 : Math.round(t * 30));
@@ -5521,7 +5907,7 @@ self.onmessage = e => {
     if (t >= 0) { g.fillStyle = '#fff'; g.fillRect(x(t), 0, 2, H); }
     g.fillStyle = '#8f8'; g.font = (9.5 * d) + 'px Monaco, monospace';
     g.fillText(S.noteName(hi - 2) + ' ', 12 * d, 14 * d); g.fillText(S.noteName(lo + 2), 12 * d, H - 8 * d);
-    g.fillText('NO MOUTH · SOURCE PITCH', 60 * d, H - 8 * d);
+    g.fillText('SOURCE PITCH', 60 * d, H - 8 * d);
   }
   function showReadouts() {
     const ro = document.getElementById('ro'); ro.textContent = '';
@@ -5541,8 +5927,8 @@ self.onmessage = e => {
   // ---------- start ----------
   let start = null;
   try { start = JSON.parse(localStorage.getItem(STORE)); } catch (e) { start = null; }
-  if (!start) start = (window.KRILL_EXAMPLES || [])[0] || C.defaults('dolphin', false, { name: 'Unnamed' });
-  try { load(start); } catch (e) { load(C.defaults('throat', false)); }
+  if (!start) start = (window.KRILL_EXAMPLES || [])[0] || C.defaults('dolphin', 'none', { name: 'Unnamed' });
+  try { load(start); } catch (e) { load(C.defaults('throat', 'none')); }
   dirty = false; showName();
   drawSpec(); drawTube(-1);
   window.krillPage = { get creature() { return creature; }, load, run, get last() { return last; } };   // for tests

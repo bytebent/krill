@@ -18,6 +18,6 @@ for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.krill-creature.json
   while (!job.render.done) job.render.read(L, R, 4800);
   const s = Number(process.hrtime.bigint() - t) / 1e9;
   const awake = job.render.stats().awake[0];
-  console.log(c.name.padEnd(12) + (c.source + (c.mouth ? ' + tube' : '')).padEnd(16) + ((awake * 100).toFixed(0) + '%').padStart(7) +
+  console.log(c.name.padEnd(12) + C.speciesLabel(c).padEnd(16) + ((awake * 100).toFixed(0) + '%').padStart(7) +
     (seconds / s).toFixed(1).padStart(13) + '  ' + (s * 1000 / (seconds * awake)).toFixed(1).padStart(8));
 }

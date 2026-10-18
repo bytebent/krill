@@ -1,10 +1,10 @@
 {
   "format": "krill-creature",
-  "version": 1,
+  "version": 2,
   "name": "Ticker",
   "seed": 1717,
   "source": "dolphin",
-  "mouth": true,
+  "body": "tube",
   "pitch": {
     "low": 48,
     "high": 72,
@@ -33,15 +33,15 @@
     "dolphin.biphon": [0, 0.3],
     "dolphin.size": [0.2, 0.6],
     "dolphin.sizemode": [0, 0],
-    "mouth.tongueX": [0, 1],
-    "mouth.tongueY": [0, 1],
-    "mouth.tip": [0, 0],
-    "mouth.jaw": [0.2, 0.6],
-    "mouth.lips": [0.2, 1],
-    "mouth.round": [0, 0.5],
-    "mouth.nasal": [0, 0.15],
-    "mouth.length": [9, 18],
-    "mouth.damping": [0.4, 0.6]
+    "tube.tongueX": [0, 1],
+    "tube.tongueY": [0, 1],
+    "tube.tip": [0, 0],
+    "tube.jaw": [0.2, 0.6],
+    "tube.lips": [0.2, 1],
+    "tube.round": [0, 0.5],
+    "tube.nasal": [0, 0.15],
+    "tube.length": [9, 18],
+    "tube.damping": [0.4, 0.6]
   },
   "morph": 0.5,
   "call": {
@@ -66,5 +66,9 @@
     "pan": 0.5,
     "wander": 0.4,
     "level": -9
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
   }
 }

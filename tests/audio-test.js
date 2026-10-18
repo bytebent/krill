@@ -207,8 +207,8 @@ test('every example keeps at least 6 dB of headroom inside its engine', () => {
 });
 
 test('species calibration: Level 0 is about -20 dBFS RMS while calling, for all four', () => {
-  for (const source of ['throat', 'dolphin']) for (const mouth of [false, true]) {
-    const c = C.defaults(source, mouth, { seed: 3 });
+  for (const source of C.SOURCES) for (const body of C.BODIES) {
+    const c = C.defaults(source, body, { seed: 3 });
     c.manner.level = 0; c.manner.pan = 0; c.manner.wander = 0;
     const job = M.soloRender(c, { seed: 3, seconds: 60, pitch: { mode: 'free' }, fadeIn: 0, fadeOut: 0, level: -30 });
     job.render.lim.ceil = 0;
@@ -219,6 +219,23 @@ test('species calibration: Level 0 is about -20 dBFS RMS while calling, for all 
       for (let i = 0; i < k; i++) { const x = (L[i] + Rr[i]) * Math.SQRT1_2; if (x !== 0) { e += x * x; n++; } }
     }
     const rms = 10 * Math.log10(e / n) + 30;
-    assert.ok(Math.abs(rms + 20) < 5, source + (mouth ? '+tube' : '') + ' ' + rms.toFixed(1) + ' dB');
+    assert.ok(Math.abs(rms + 20) < 5, source + '+' + body + ' ' + rms.toFixed(1) + ' dB');
   }
+});
+
+test('low-pass: off costs nothing and changes nothing; on cuts the highs at 24 dB/oct', () => {
+  const c = plain('throat', { 'throat.breathy': 0.6, 'throat.thin': 1 });
+  const go = filter => { const k = JSON.parse(JSON.stringify(c)); k.filter = filter; return renderCalls(k, [cc => call(cc, [{ t: 0.1, dur: 1, note: 57 }])], 1.2); };
+  const off = go({ on: false, cutoff: 1000 }), base = go({ on: false, cutoff: 8000 }), on = go({ on: true, cutoff: 1000 });
+  assert.deepEqual(off.L, base.L, 'off: cutoff is ignored');
+  assert.equal(off.voice.lp, null, 'off: no filter object at all');
+  // energy around 4 kHz (two octaves above the cutoff) should drop by about 48 dB
+  const band = x => { const P = require('../src/preview.js').spectrogram(x, x, SR); let e = 0, n = 0;
+    const k0 = Math.round(3500 / (SR / 1024)), k1 = Math.round(4500 / (SR / 1024));
+    for (let c2 = 20; c2 < P.cols - 20; c2++) for (let k = k0; k <= k1; k++) { e += P.data[c2 * P.bins + k]; n++; } return e / n; };
+  assert.ok(band(on.L) < band(off.L) - 60, 'highs reduced: ' + band(on.L).toFixed(0) + ' vs ' + band(off.L).toFixed(0) + ' (bytes, 60 dB window)');
+  const low = x => { let s = 0; for (let i = 0.3 * SR; i < 1.0 * SR; i++) s += x[i] * x[i]; return s; };
+  assert.ok(low(on.L) > 0.2 * low(off.L), 'the voice itself is still there');
+  const coef = require('../src/voice.js').lowpass(1000, Math.SQRT1_2, SR);
+  assert.ok(Math.abs((coef[0] + coef[1] + coef[2]) / (1 + coef[3] + coef[4]) - 1) < 1e-9, 'unity gain at DC');
 });

@@ -1,10 +1,10 @@
 {
   "format": "krill-creature",
-  "version": 1,
+  "version": 2,
   "name": "Moanback",
   "seed": 311,
   "source": "throat",
-  "mouth": true,
+  "body": "tube",
   "pitch": {
     "low": 36,
     "high": 52,
@@ -20,15 +20,15 @@
     "throat.jitter": [0.05, 0.2],
     "throat.shimmer": [0.05, 0.2],
     "throat.source": [0, 0],
-    "mouth.tongueX": [0.5, 1],
-    "mouth.tongueY": [0.2, 0.8],
-    "mouth.tip": [0, 0],
-    "mouth.jaw": [0.1, 0.5],
-    "mouth.lips": [0.4, 0.9],
-    "mouth.round": [0.3, 0.9],
-    "mouth.nasal": [0, 0.15],
-    "mouth.length": [24, 32],
-    "mouth.damping": [0.4, 0.6]
+    "tube.tongueX": [0.5, 1],
+    "tube.tongueY": [0.2, 0.8],
+    "tube.tip": [0, 0],
+    "tube.jaw": [0.1, 0.5],
+    "tube.lips": [0.4, 0.9],
+    "tube.round": [0.3, 0.9],
+    "tube.nasal": [0, 0.15],
+    "tube.length": [24, 32],
+    "tube.damping": [0.4, 0.6]
   },
   "morph": 0.7,
   "call": {
@@ -53,5 +53,9 @@
     "pan": 0.2,
     "wander": 0.15,
     "level": -8
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
   }
 }

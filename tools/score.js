@@ -47,16 +47,16 @@ function num(v) {
 }
 const labels = slot.vary.map(k => {
   const s = C.BY_KEY[k];
-  return (s.engine === 'mouth' ? 'm.' : '') + s.id;
+  return (s.engine === slot.source ? '' : s.engine + '.') + s.id;
 });
 function showValue(k, v) {
   const s = C.BY_KEY[k];
   return s.options ? s.options[Math.round(v)] || num(v) : num(v);
 }
 
-const species = slot.source + (slot.mouth ? ' + tube' : '');
+const species = C.speciesLabel(slot);
 console.log(slot.name + ' · ' + species + ' · seed ' + score.seed + ' · ' + score.pitch + ' · ' + clock(score.seconds));
-if (slot.locked.length) console.log('locked: ' + slot.locked.map(l => l.key.replace(/^mouth\./, 'm.').replace(/^\w+\./, '') + ' ' + showValue(l.key, l.value)).join(', '));
+if (slot.locked.length) console.log('locked: ' + slot.locked.map(l => (l.engine === slot.source ? l.id : l.key) + ' ' + showValue(l.key, l.value)).join(', '));
 console.log('');
 let units = 0;
 score.calls.forEach((c, n) => {

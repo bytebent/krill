@@ -23,6 +23,7 @@ The page is built from `pages/src/` with `node tools/build-pages.js`; rebuild af
 
 ## Layout
 
+- `src/parts.js`: the sources and bodies a creature can be built from; add new engines here
 - `vendor/`: unmodified copies of the Throat, Dolphin and mouth-tube reference engines, with
   their source commits in `vendor/VERSIONS.md`
 - `src/`: krill itself, plain JavaScript that runs in Node and in the browser
