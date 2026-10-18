@@ -481,6 +481,14 @@ pitch per unit; the audio stage moves between them.
 - **Plays WAVs too:** drop a krill WAV and it plays that file, reading the pond from its `krll`
   chunk and running the voices silently alongside for the scopes and positions. Seeking re-runs
   the voices from the nearest point the score allows.
+- As built: `src/scene.js` works out positions, sizes and links from the pond and its score (no
+  audio needed; a frame costs microseconds). The player (`pages/src/player-worklet.js`) runs the
+  same pond render as an export inside an AudioWorklet at 48 kHz and taps each voice's own
+  signal (after its loudness, before pan) for the scopes. Each scope is a ring whose radius
+  follows the waveform, as big as the call is loud and as bright as the voice's level. Lines end
+  in a small dot in each creature's colour, fading with the line, so a line never ends in empty
+  space once the caller has gone quiet. **Pond length** or **Endless** (six hours) in live mode.
+  The pond page has a Visualizer button. [Decided]
 
 ## 10. Later
 - **More sources and bodies**: experimental synths as sources, other resonating bodies, other

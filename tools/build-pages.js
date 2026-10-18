@@ -42,7 +42,19 @@ function buildPond() {
     .replace('/*MAIN*/', () => main);
 }
 
-const PAGES = { 'pages/creature.html': buildCreature, 'pages/pond.html': buildPond };
+function buildVisualizer() {
+  // the worklet is an ES module with no `self`; krill's modules attach to self
+  const worklet = js(ENGINES.concat(CORE, ['pages/src/player-worklet.js']));
+  const pondEx = fs.readFileSync(path.join(ROOT, 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8');
+  const main = 'window.KRILL_POND_EXAMPLE = ' + JSON.stringify(JSON.parse(pondEx)) + ';\n' +
+    js(['src/rng.js', 'src/scales.js', 'src/parts.js', 'src/creature.js', 'src/roll.js', 'src/pond.js', 'src/conductor.js', 'src/pan.js', 'src/scene.js', 'src/wav.js', 'pages/src/kit.js', 'pages/src/visualizer-page.js']);
+  return read('pages/src/visualizer.html')
+    .replace('/*KIT_CSS*/', () => read('pages/src/kit.css'))
+    .replace('/*WORKLET*/', () => worklet)
+    .replace('/*MAIN*/', () => main);
+}
+
+const PAGES = { 'pages/creature.html': buildCreature, 'pages/pond.html': buildPond, 'pages/visualizer.html': buildVisualizer };
 
 if (require.main === module) {
   for (const out in PAGES) {

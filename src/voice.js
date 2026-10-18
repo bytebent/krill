@@ -236,8 +236,20 @@
       }
       pan = PAN.place(pan, this.width);
       const th = (pan + 1) * Math.PI / 4, g = this.gain * this.callGain, gl = Math.cos(th) * g, gr = Math.sin(th) * g;
+      if (this.tap) this.tap(b, src, g);               // the visualizer's scope (mono, before pan)
       for (let i = 0; i < B; i++) { const x = src[i]; outL[i] += x * gl; outR[i] += x * gr; }
       return true;
+    }
+
+    // Jump to block b without rendering what came before: for the visualizer's silent voices that
+    // follow a WAV. Calls that are over are dropped; one under way at b starts from b. Close to a
+    // straight render, not the same, so it's only used for pictures.
+    skipTo(b) {
+      if (this.held >= 0) { this.noteOff(this.held); this.held = -1; }
+      this.cur = null; this.ui = -1; this.unitOn = false; this.awakeUntil = -1;
+      let k = 0;
+      while (k < this.calls.length && this.calls[k].quiet <= b) k++;
+      this.ci = k;
     }
 
     get done() { return !this.cur && this.ci >= this.calls.length; }

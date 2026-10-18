@@ -4,7 +4,7 @@ A generator for long ambient pieces made by a pond of alien creatures. Each crea
 bytebent engines (Throat, Dolphin, mouth-tube), rolls every sound from its own ranges, and takes
 turns, answers and copies the others. The pond renders to a WAV file.
 
-Status: **prototype, batch 09 of 11**. Both pages work and export; the visualizer is next.
+Status: **prototype, batch 10 of 11**. Pond, creature and visualizer pages work; the listening round is next.
 
 - `design.md`: what krill is and how it works
 - `plan.md`: build batches for the prototype
@@ -30,6 +30,16 @@ Firefox it goes up to 30 minutes, and longer pieces use `node tools/render.js <p
 Dropping a krill WAV on the page (or **Load…**) opens the pond it was made from. **Edit** on a
 slot opens that creature on the creature page.
 
+## Visualizer page
+
+Open `pages/visualizer.html` (next to the other two, or press **Visualizer** on the pond page). It
+opens the pond you were working on and plays it live: each creature is a scope of its own voice,
+placed left to right as you hear it, sized by how loud its call is, and gone when it's silent.
+Answers pass a ball along a white line; copies draw a dotted one. **Pond length** or **Endless**
+(six hours) picks how long it plays. **Load…** (or drop a file) opens a pond file or a krill
+WAV; a WAV plays as itself, with the pond running silently alongside for the pictures, and the
+player's own controls can seek.
+
 The pages are built from `pages/src/` with `node tools/build-pages.js`; rebuild after changing
 `src/`, `vendor/` or `pages/src/`. `node tools/check-pages.js` drives it in headless Chromium.
 
@@ -39,7 +49,8 @@ The pages are built from `pages/src/` with `node tools/build-pages.js`; rebuild 
 - `vendor/`: unmodified copies of the Throat, Dolphin and mouth-tube reference engines, with
   their source commits in `vendor/VERSIONS.md`
 - `src/`: krill itself, plain JavaScript that runs in Node and in the browser
-- `pages/`: the built pages; `pages/src/`: their sources (template, kit, page script, worker)
+- `pages/`: the built pages; `pages/src/`: their sources (templates, kit, page scripts, render
+  worker, the visualizer's AudioWorklet player)
 - `tests/`: Node tests
 - `tools/`: command-line tools
 - `examples/`: example creatures and ponds

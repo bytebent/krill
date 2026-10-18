@@ -246,6 +246,59 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   await pp.waitForFunction(() => window.krillPage && window.krillPage.creature);
   ok('Edit opens that creature on the creature page', await pp.evaluate(() => window.krillPage.creature.name === 'Ticker'));
   ok('no console errors on the pond page', perr.length === 0, perr.slice(0, 3).join(' | '));
+  // ---------------- visualizer page ----------------
+  console.log('\nvisualizer.html');
+  const vp = await browser.newPage({ viewport: { width: 1180, height: 960 } });
+  const verr = [];
+  vp.on('console', m => { if (m.type() === 'error') verr.push(m.text()); });
+  vp.on('pageerror', e => verr.push(String(e)));
+  await vp.goto('file://' + path.join(ROOT, 'pages', 'visualizer.html'));
+  await vp.waitForFunction(() => window.krillVis && window.krillVis.scene);
+  ok('with nothing stored, it opens the example pond', await vp.evaluate(() => window.krillVis.pond.seed === 7 && window.krillVis.mode === 'live'));
+  await vp.evaluate(() => localStorage.setItem('krill.pond.v1', JSON.stringify(Object.assign({}, window.KRILL_POND_EXAMPLE, { seed: 4321 }))));
+  await vp.reload();
+  await vp.waitForFunction(() => window.krillVis && window.krillVis.scene);
+  ok('it opens the pond page\'s pond', await vp.evaluate(() => window.krillVis.pond.seed === 4321));
+  await vp.click('#example');
+  await vp.click('#play');
+  await vp.waitForFunction(() => window.krillVis.playing && window.krillVis.now() > 8, null, { timeout: 60000 });
+  const live = await vp.evaluate(() => {
+    const V = window.krillVis, heard = Object.values(V.levels).filter(l => l > -50).length;
+    return { scopes: Object.keys(V.scopes).length, heard, t: V.now(), sf: V.scopeFrame / 48000, status: document.getElementById('status').textContent };
+  });
+  ok('Play renders the pond live in the worklet and every voice sends its scope', live.scopes === 4 && /live/i.test(live.status) && Math.abs(live.sf - live.t) < 0.5, 'audio ' + live.t.toFixed(1) + ' s, scopes at ' + live.sf.toFixed(1) + ' s');
+  // over 6 s, scopes light while the score says a creature is calling, and stay dark otherwise
+  const agree = await vp.evaluate(async () => {
+    const V = window.krillVis; let same = 0, n = 0, lit = 0;
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 100));
+      const f = V.scene.at(V.scopeFrame / 48000);
+      for (const w of f.where) if (w) { const on = (V.levels[w.slot] || -120) > -50; if (on) lit++; n++; if (on === w.calling || (!w.calling && on)) same++; }
+    }
+    return { same, n, lit };
+  });
+  ok('scopes light while a creature calls and go dark when it is silent', agree.lit > 5 && agree.same / agree.n > 0.8, agree.same + ' of ' + agree.n + ' samples agree');
+  const dark = await vp.evaluate(() => { const c = document.getElementById('vis'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 90) n++; return n / (d.length / 4); });
+  ok('the circle is drawn', dark > 0.001, (dark * 100).toFixed(2) + '% lit');
+  if (SHOTS) await vp.screenshot({ path: path.join(SHOTS, '10-visualizer.png') });
+  await vp.click('#play');
+  const paused = await vp.evaluate(async () => { const a = window.krillVis.now(); await new Promise(r => setTimeout(r, 700)); return [a, window.krillVis.now(), window.krillVis.playing]; });
+  ok('Pause stops time', !paused[2] && Math.abs(paused[1] - paused[0]) < 0.01);
+  // a krill WAV: it plays the file, the silent voices follow it, a seek re-joins them
+  const wavPath = path.join(require('os').tmpdir(), 'krill-vis-check.wav');
+  { const P = require('../src/preview.js'), PDn = require('../src/pond.js'); const q = PDn.normalise(fs.readFileSync(path.join(ROOT, 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8')).pond; q.output.minutes = 1.5; fs.writeFileSync(wavPath, P.pondWav(q, {}).bytes); }
+  await vp.setInputFiles('#file', wavPath);
+  await vp.waitForFunction(() => window.krillVis.mode === 'wav');
+  ok('a krill WAV opens with its pond and its length', await vp.evaluate(() => window.krillVis.pond.seed === 7 && window.krillVis.scene.seconds === 90 && !document.getElementById('player').hidden));
+  await vp.click('#play');
+  await vp.waitForFunction(() => window.krillVis.now() > 4, null, { timeout: 60000 });
+  const w1 = await vp.evaluate(() => ({ t: document.getElementById('audio').currentTime, sf: window.krillVis.scopeFrame / 48000 }));
+  ok('the silent voices follow the WAV', Math.abs(w1.t - w1.sf) < 0.5, 'WAV ' + w1.t.toFixed(1) + ' s, voices ' + w1.sf.toFixed(1) + ' s');
+  await vp.evaluate(() => { document.getElementById('audio').currentTime = 60; });
+  await vp.waitForFunction(() => document.getElementById('audio').currentTime > 62, null, { timeout: 60000 });
+  const w2 = await vp.evaluate(() => ({ t: document.getElementById('audio').currentTime, sf: window.krillVis.scopeFrame / 48000 }));
+  ok('after a seek they pick up where the WAV is', Math.abs(w2.t - w2.sf) < 0.5, 'WAV ' + w2.t.toFixed(1) + ' s, voices ' + w2.sf.toFixed(1) + ' s');
+  ok('no console errors on the visualizer', verr.length === 0, verr.slice(0, 3).join(' | '));
   await browser.close();
   const failed = results.filter(r => !r.ok).length;
   console.log('\n' + (results.length - failed) + ' passed, ' + failed + ' failed');

@@ -7,7 +7,7 @@ Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 Moanback only when checking that a long, monotonous call works, or when a test needs a
 Throat + Mouth creature.
 
-**Now: 86 Node tests passing** (about 30 s, most of it the audio tests), plus **47 browser checks**
+**Now: 93 Node tests passing** (about 40 s, most of it the audio tests), plus **57 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -193,3 +193,25 @@ short buzzes. Rests are exact digital silence.
 - **Fixed while testing:** a krill WAV is recognised by its contents, not its name, since
   downloads can lose the `.wav` extension.
 - Not tested here: Safari itself (WebKit can't be installed in this sandbox).
+
+## Batch 10 · visualizer
+
+![The visualizer: Glassfin calls, two answers on their way](docs/tests/10-visualizer.png)
+
+- Scene (Node): the same pond gives the same scene and another seed differs; left to right is
+  the voice's own pan (within 0.02, 800+ checks), everyone stays inside the circle; heights are
+  seeded per slot and drift with the eras (2× more travel with 30 s eras than 300 s ones); size
+  follows the call's loudness (-24 dB lane vs 0 dB) and loudness never moves a creature; an
+  answer's ball leaves as the caller ends and arrives as the answer starts, its line then fades;
+  dotted lines are always copies. A frame takes microseconds, even six hours in. ✓
+- Seek (Node): voices that jump to a point and play on sound close to a straight render (energy
+  per second within 3 dB). Only used for pictures; renders are unchanged (same SHA-256). ✓
+- Browser, live: Play renders the pond in the AudioWorklet, all four voices send scopes, and the
+  scopes keep time with the audio (within 0.1 s). Over 6 s, 237 of 240 samples agree that a
+  scope is lit while its creature calls and dark when it's silent. Pause stops time. ✓
+- Browser, WAV: a krill WAV opens with its pond and length; the silent voices follow the WAV
+  (same second) and pick up again after a seek to 1:00. ✓
+- **Fixed while testing:** pages opened from disk refuse a blob URL for the worklet; it now
+  falls back to a data: URL. Lines could end in empty space after the caller went quiet; their
+  ends are now small dots that fade with the line.
+- Not tested here: Safari (WebKit can't be installed in this sandbox).

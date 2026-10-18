@@ -21,9 +21,10 @@ src/               krill code, plain JS, runs in browser and Node
   conductor.js     floor, turns, answers, motifs, mimicry, eras → score
   pan.js           where a voice sits: home, wander, lean, Width (voice and sketch)
   voice.js         score → audio for one creature (engine, tube, pan)
+  scene.js         the visualizer's positions, sizes and links at any time
   mixer.js         all voices → stereo, limiter, fades
   wav.js           streaming WAV writer, info chunk
-pages/             creature.html, pond.html (+ shared kit css/js, render worker)
+pages/             creature.html, pond.html, visualizer.html (+ kit, render worker, worklet player)
 tools/score.js     prints a creature's solo score as text
 tools/render.js    Node render command
 tools/bench.js     render speed per example
@@ -44,8 +45,8 @@ examples/          a few creatures and ponds for testing
 | 06 | **Conductor** | `conductor.js`: floor, Overlap, response gaps, Talkative / Responsive, motifs stored as range positions, copying into the copier's ranges, mutation, motif memory, harmonise, opposite-side answers, eras, slot re-rolls. | Tests: turn rules, determinism, one-creature pond | Done |
 | 07 | **Pond render** | Multi-slot rendering in `tools/render.js` with progress, CPU and timing report, long renders streamed to disk. | Tests · **You:** a 20-minute render | Done (with 06) |
 | 08 | **Pond page** | Slots, sketch view from the score, Pitch / Talk / Space panels, preview render up to 10 min, download, Save / Load pond, the Node command shown for longer pieces. | Headless browser check · **You** | Done |
-| 09 | **Export** | Export sheet (length presets and custom, bits, fades, pond file), streaming to disk in Chrome / Edge, in memory up to 30 min elsewhere, krill WAVs open as ponds. | Headless browser check · **You** | Built, waiting for you |
-| 10 | **Visualizer** | `visualizer.html`: circle, per-creature scopes sized by loudness and fading with level, pan + seeded drifting height, answer lines with a ball, dotted copy lines, live playback in an AudioWorklet, WAV playback with silent voices for the visuals. | Headless browser check · **You** | |
+| 09 | **Export** | Export sheet (length presets and custom, bits, fades, pond file), streaming to disk in Chrome / Edge, in memory up to 30 min elsewhere, krill WAVs open as ponds. | Headless browser check · **You** | Done |
+| 10 | **Visualizer** | `visualizer.html`: circle, per-creature scopes sized by loudness and fading with level, pan + seeded drifting height, answer lines with a ball, dotted copy lines, live playback in an AudioWorklet, WAV playback with silent voices for the visuals. | Headless browser check · **You** | Built, waiting for you |
 | 11 | **Listening round** | Tuning defaults and ranges from what you hear; fix what sounds wrong. | **You** | |
 
 ## Not in the prototype

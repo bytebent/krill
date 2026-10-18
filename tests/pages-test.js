@@ -17,8 +17,9 @@ test('built pages are up to date (run node tools/build-pages.js)', () => {
     const got = fs.readFileSync(path.join(ROOT, out), 'utf8');
     assert.ok(got === want, out + ' is stale');
     // inlined code can't end the script element early
-    const worker = want.slice(want.indexOf('id="worker-src">'), want.indexOf('</script>', want.indexOf('id="worker-src">')));
-    assert.ok(worker.length > 100000, 'worker code is inlined');
+    const id = want.includes('id="worker-src">') ? 'id="worker-src">' : 'id="worklet-src">';
+    const worker = want.slice(want.indexOf(id), want.indexOf('</script>', want.indexOf(id)));
+    assert.ok(worker.length > 100000, out + ': worker code is inlined');
     assert.ok(!/<\/script/i.test(worker.slice(20)), 'no </script inside the worker source');
   }
 });

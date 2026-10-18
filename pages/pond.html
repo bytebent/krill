@@ -178,6 +178,7 @@ select.field{padding:0 4px}
     <input class="field" id="name" maxlength="40" aria-label="Pond name" spellcheck="false">
     <span id="dirty" title="Changed since it was saved or loaded" hidden>*</span>
     <span class="lines"></span>
+    <a class="gel grey small" id="toVis" href="visualizer.html" style="text-decoration:none" title="Watch and hear this pond in the visualizer">Visualizer</a>
     <a class="gel grey small" id="toCreature" href="creature.html" style="text-decoration:none">Creature</a>
   </div>
   <div class="body">
@@ -3466,8 +3467,20 @@ select.field{padding:0 4px}
       }
       pan = PAN.place(pan, this.width);
       const th = (pan + 1) * Math.PI / 4, g = this.gain * this.callGain, gl = Math.cos(th) * g, gr = Math.sin(th) * g;
+      if (this.tap) this.tap(b, src, g);               // the visualizer's scope (mono, before pan)
       for (let i = 0; i < B; i++) { const x = src[i]; outL[i] += x * gl; outR[i] += x * gr; }
       return true;
+    }
+
+    // Jump to block b without rendering what came before: for the visualizer's silent voices that
+    // follow a WAV. Calls that are over are dropped; one under way at b starts from b. Close to a
+    // straight render, not the same, so it's only used for pictures.
+    skipTo(b) {
+      if (this.held >= 0) { this.noteOff(this.held); this.held = -1; }
+      this.cur = null; this.ui = -1; this.unitOn = false; this.awakeUntil = -1;
+      let k = 0;
+      while (k < this.calls.length && this.calls[k].quiet <= b) k++;
+      this.ci = k;
     }
 
     get done() { return !this.cur && this.ci >= this.calls.length; }
@@ -3934,6 +3947,14 @@ select.field{padding:0 4px}
         this.peak = pk;
         if (this.lim.push(mL, mR, this.outL, this.outR)) { this.have = B; this.at = 0; return; }
       }
+    }
+
+    // jump to a frame (the visualizer's silent voices; see Voice.skipTo)
+    seek(frame) {
+      const b = Math.max(0, Math.floor(frame / B));
+      for (const v of this.voices) v.skipTo(b);
+      this.b = b; this.pos = Math.min(this.frames, b * B); this.have = 0; this.at = 0;
+      this.lim = new Limiter(this.sr, this.lim.ceil);
     }
 
     // fill up to n frames; returns how many were written (0 when finished)

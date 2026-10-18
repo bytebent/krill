@@ -114,6 +114,14 @@
       }
     }
 
+    // jump to a frame (the visualizer's silent voices; see Voice.skipTo)
+    seek(frame) {
+      const b = Math.max(0, Math.floor(frame / B));
+      for (const v of this.voices) v.skipTo(b);
+      this.b = b; this.pos = Math.min(this.frames, b * B); this.have = 0; this.at = 0;
+      this.lim = new Limiter(this.sr, this.lim.ceil);
+    }
+
     // fill up to n frames; returns how many were written (0 when finished)
     read(L, R, n) {
       let w = 0;
