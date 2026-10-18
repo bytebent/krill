@@ -4,8 +4,9 @@
  * A pond is up to six slots, each holding a creature (embedded, so the file alone can re-render
  * a piece), a re-roll count and its lane settings, plus pitch, talk, space and output settings
  * and a seed. Lane settings: ignore (outside the conversation: speaks on its own, isn't heard)
- * and loudness [low, 0] dB: each call's loudness is drawn from this range, so a lane only ever
- * gets quieter than its creature, never louder (low from -24 to 0).
+ * and loudness [low, high] dB: each call's loudness is drawn from this range. Both ends lie in
+ * -24..0, so a lane only ever gets quieter than its creature, never louder; low = high fixes it.
+ * Files from before the top was movable have [low, 0] and play the same.
  * normalise() repairs and fills in like creature.normalise(); unknown keys are kept.
  *
  * Works in the browser (Krill.pond) and in Node (module.exports).
@@ -21,7 +22,7 @@
   const FORMAT = 'krill-pond';
   const VERSION = 1;
   const SLOTS = 6;
-  const LOUDNESS = { min: -24, def: -6 };       // lane loudness range is [low, 0] dB
+  const LOUDNESS = { min: -24, def: -6 };       // lane loudness range is [low, high] dB, both -24..0
   const COLORS = ['var(--green)', 'var(--yellow)', 'var(--orange)', 'var(--red)', 'var(--purple)', 'var(--blue)'];   // stripe order
 
   const FIELDS = [
@@ -90,11 +91,15 @@
         const r = C.normalise(s.creature);
         for (const w of r.warnings) warn.push('slot ' + (i + 1) + ': ' + w);
         const slot = Object.assign({}, s, { creature: r.creature, rerolls: Number.isInteger(s.rerolls) && s.rerolls > 0 ? s.rerolls : 0, ignore: !!s.ignore });
-        let low = LOUDNESS.def;
-        if (Array.isArray(s.loudness) && Number.isFinite(+s.loudness[0])) low = +s.loudness[0];
+        let low = LOUDNESS.def, high = 0;
+        if (Array.isArray(s.loudness) && Number.isFinite(+s.loudness[0])) {
+          low = +s.loudness[0];
+          if (Number.isFinite(+s.loudness[1])) high = +s.loudness[1];
+        }
         else if (Number.isFinite(+s.level) || Number.isFinite(+s.dynamics)) low = Math.min(0, +s.level || 0) - (+s.dynamics || 0);   // early files
         delete slot.level; delete slot.dynamics;
-        slot.loudness = [clamp(Math.round(low * 10) / 10, LOUDNESS.min, 0), 0];
+        const q = x => clamp(Math.round(x * 10) / 10, LOUDNESS.min, 0);
+        slot.loudness = [Math.min(q(low), q(high)), Math.max(q(low), q(high))];
         o.slots.push(slot);
       } catch (e) { warn.push('slot ' + (i + 1) + ': ' + e.message + ', emptied'); o.slots.push(null); }
     }

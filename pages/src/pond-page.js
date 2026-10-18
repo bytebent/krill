@@ -9,7 +9,7 @@
  */
 (function () {
   'use strict';
-  const K = window.Krill, C = K.creature, S = K.scales, PD = K.pond, CD = K.conductor, kit = K.kit, el = kit.el;
+  const K = window.Krill, C = K.creature, S = K.scales, PD = K.pond, CD = K.conductor, PAN = K.pan, kit = K.kit, el = kit.el;
   const { Rng } = K.rng;
   const STORE = 'krill.pond.v1', CREATURE_STORE = 'krill.creature.v1';
   const PREVIEW_MAX_MIN = 10;
@@ -59,8 +59,8 @@
       label: null }).el.title = 'Ignores: speaks on its own, outside the conversation';
     const rbox = el('div'); row.appendChild(rbox);
     kit.Range(rbox, { name: 'Loudness', min: -24, max: 0, unit: 'dB', c: HEX[i], round: 0.5,
-      title: 'Each call is drawn from this range; the top stays at 0 dB, so a lane only gets quieter',
-      get: () => s.loudness, set: ([a]) => { s.loudness = [Math.min(0, a), 0]; changed(); } });
+      title: 'Each call is drawn from this range, at most 0 dB, so a lane only gets quieter. Drag the top down if a lane is too loud',
+      get: () => s.loudness, set: ([a, b]) => { s.loudness = [Math.min(0, a, b), Math.min(0, Math.max(a, b))]; changed(); } });
     const btns = el('div', 'btns');
     const b = (label, title, fn) => { const x = el('button', 'gel grey small', label); x.type = 'button'; x.title = title; x.addEventListener('click', fn); btns.appendChild(x); return x; };
     b('↻', 'Re-roll this creature: new calls, the others stay', () => { s.rerolls++; changed(); buildSlots(); });
@@ -151,7 +151,7 @@
     g.fillStyle = '#060608'; g.fillRect(0, 0, W, H);
     if (!score) return;
     const secs = score.seconds, x0 = 34 * d, x1 = W - 8 * d, X = t => x0 + t / secs * (x1 - x0);
-    const eraH = 18 * d, panH = 34 * d, laneTop = eraH + 6 * d, laneH = (H - laneTop - panH - 10 * d) / PD.SLOTS;
+    const eraH = 18 * d, panH = 54 * d, laneTop = eraH + 6 * d, laneH = (H - laneTop - panH - 10 * d) / PD.SLOTS;
     layout = { X, x0, x1, H };
     g.font = (9.5 * d) + 'px Monaco, monospace'; g.textBaseline = 'middle';
     // era density, as a line across the top
@@ -182,15 +182,27 @@
       if (c.kind === 'copy') { g.globalAlpha = 1; g.strokeStyle = '#fff'; g.lineWidth = 1 * d; g.strokeRect(px + 0.5, top + 0.5, w - 1, h - 1); }
     }
     g.globalAlpha = 1;
-    // pan: where each call sits, left at the top of the strip, right at the bottom
-    const py0 = H - panH - 2 * d;
+    // pan: where each call sits while it sounds (the voice's own math: home, wander, answer lean,
+    // Width), left at the top of the strip, centre dashed, right at the bottom
+    const py0 = H - panH - 4 * d, PY = p => py0 + 3 * d + (p + 1) / 2 * (panH - 6 * d);
     g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(x0, py0, x1 - x0, panH);
-    g.fillStyle = 'rgba(136,255,136,.7)'; g.fillText('L', 8 * d, py0 + 6 * d); g.fillText('R', 8 * d, py0 + panH - 6 * d);
+    g.strokeStyle = 'rgba(136,255,136,.25)'; g.lineWidth = 1; g.setLineDash([3 * d, 4 * d]);
+    g.beginPath(); g.moveTo(x0, PY(0)); g.lineTo(x1, PY(0)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = 'rgba(136,255,136,.7)';
+    g.fillText('L', 8 * d, PY(-1)); g.fillText('C', 8 * d, PY(0)); g.fillText('R', 8 * d, PY(1));
+    g.lineWidth = 2 * d; g.lineCap = 'round';
     for (const c of score.calls) {
-      const sl = score.slots[c.slot], pan = Math.max(-1, Math.min(1, (sl.pan + (c.lean || 0)))) * pond.space.width;
-      g.fillStyle = HEX[c.slot];
-      g.fillRect(X(c.t), py0 + (pan + 1) / 2 * (panH - 4 * d), 2 * d, 3 * d);
+      const sl = score.slots[c.slot]; if (!sl) continue;
+      const n = Math.max(1, Math.min(8, Math.ceil((c.end - c.t) / 2)));
+      g.strokeStyle = HEX[c.slot]; g.beginPath();
+      for (let k = 0; k <= n; k++) {
+        const t = c.t + (c.end - c.t) * k / n, px = X(t), py = PY(PAN.slotPanAt(pond, c.slot, sl, t, c.lean));
+        if (k) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+      g.lineTo(Math.max(X(c.end), X(c.t) + 1.5 * d), PY(PAN.slotPanAt(pond, c.slot, sl, c.end, c.lean)));
+      g.stroke();
     }
+    g.lineCap = 'butt';
     // minute ticks
     g.fillStyle = 'rgba(136,255,136,.5)';
     const step = secs > 1200 ? 300 : secs > 300 ? 60 : secs > 60 ? 10 : 5;

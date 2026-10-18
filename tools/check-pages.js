@@ -164,7 +164,14 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   const lb = await lt.boundingBox();
   await pp.mouse.move(lb.x + lb.width * 0.75, lb.y + lb.height / 2); await pp.mouse.down(); await pp.mouse.move(lb.x + 3, lb.y + lb.height / 2, { steps: 5 }); await pp.mouse.up();
   const loud = await pp.evaluate(() => window.krillPond.pond.slots[4].loudness);
-  ok('the loudness range moves its low end and keeps the top at 0', loud[1] === 0 && loud[0] < -15, JSON.stringify(loud));
+  ok('the loudness range moves its low end', loud[1] === 0 && loud[0] < -15, JSON.stringify(loud));
+  const hb = await pp.locator('.slot').nth(4).locator('.h.hi').boundingBox();
+  await pp.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await pp.mouse.down(); await pp.mouse.move(lb.x + lb.width * 0.5, lb.y + lb.height / 2, { steps: 5 }); await pp.mouse.up();
+  const loud2 = await pp.evaluate(() => window.krillPond.pond.slots[4].loudness);
+  ok('the top end moves down too and stays at or below 0', loud2[1] < -6 && loud2[1] <= 0 && loud2[0] <= loud2[1] && loud2[0] === loud[0], JSON.stringify(loud2));
+  const sides = await pp.evaluate(() => { const P = window.krillPond.pond, sc = window.krillPond.score;
+    const v = sc.calls.map(c => window.Krill.pan.slotPanAt(P, c.slot, sc.slots[c.slot], c.t, c.lean)); return [Math.min(...v), Math.max(...v)]; });
+  ok('the pan strip spreads calls to both sides', sides[0] < -0.3 && sides[1] > 0.3, sides.map(x => x.toFixed(2)).join(' … '));
   await pp.locator('.slot').nth(4).locator('button[title^="Remove"]').click();
   ok('removing a creature empties the slot', await pp.evaluate(() => window.krillPond.pond.slots[4] === null));
   await pp.click('#g-pitch .seg >> text=On');

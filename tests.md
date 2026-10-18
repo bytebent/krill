@@ -7,7 +7,7 @@ Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 Moanback only when checking that a long, monotonous call works, or when a test needs a
 Throat + Mouth creature.
 
-**Now: 82 Node tests passing** (about 30 s, most of it the audio tests), plus **38 browser checks**
+**Now: 84 Node tests passing** (about 30 s, most of it the audio tests), plus **40 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -157,3 +157,19 @@ short buzzes. Rests are exact digital silence.
 - The creature page's 22 checks still pass; its Pond button now opens the pond page.
 - Node: the pond preview renders a pond's first minutes to a complete WAV. ✓
 - **Fixed while testing:** the slot loudness and Response sliders were cramped; widened.
+
+### After your review
+
+![The pond page: the pan strip now follows each call's real position](docs/tests/08-pond-page.png)
+
+- **Loudness range, both ends movable:** each call is drawn from [low, high], both at most 0 dB;
+  low = high fixes the lane's level. With -18 to -8 every call lands inside it (spread over 5 dB);
+  swapped ends sort, a top above 0 clamps to 0. Ponds saved with [low, 0] score and render bit
+  for bit as before (2-minute example pond, same SHA-256). Browser: dragging the top handle down
+  moves only the top. ✓
+- **Bug found: the pan strip didn't show what you hear.** It drew each call at its creature's
+  home position only, ignoring wander, in a 34 px strip with no centre, so lanes looked bunched.
+  The pan math now lives in `src/pan.js`, used by both the voice and the sketch; the strip is
+  taller, has a dashed centre line and draws each call as a line across its duration. Example
+  pond: calls span -0.80 to +0.80 (Width 80%) and lanes keep their left-to-right order. The
+  voice's output is unchanged (same SHA-256). ✓

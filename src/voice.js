@@ -26,6 +26,7 @@
   const E = inNode ? require('./engines.js') : K.engines;
   const PARTS = inNode ? require('./parts.js') : K.parts;
   const { hash, tag } = inNode ? require('./rng.js') : K.rng;
+  const PAN = inNode ? require('./pan.js') : K.pan;
 
   const B = E.BLOCK;
   const TAIL_PAD = 0.75;          // s after a call's release before the voice may sleep (engine + tube ring-out)
@@ -40,14 +41,6 @@
   }
 
   function smooth(x) { return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); }
-
-  // value noise in -1..1, a function of time only (no state, so chunking can't change it)
-  function noise(seed, t, period) {
-    const x = t / period, k = Math.floor(x), f = x - k;
-    const a = hash(seed, k) / 2147483648 - 1, b = hash(seed, k + 1) / 2147483648 - 1;
-    const u = 0.5 - 0.5 * Math.cos(Math.PI * f);
-    return a + (b - a) * u;
-  }
 
   class Voice {
     // slot: a score slot (roll.slotInfo); calls: that slot's calls in time order
@@ -109,8 +102,7 @@
       this.home = opts.pan || 0;
       this.wander = opts.wander || 0;
       this.width = opts.width == null ? 1 : opts.width;
-      this.panSeed = hash(opts.seed >>> 0, tag('pan'));
-      this.panPeriod = 6 + 24 * (1 - this.wander);
+      this.panSeed = PAN.wanderSeed(opts.seed);
       this.lean = 0; this.leanTarget = 0;
       this.callGain = 1; this.callGainTarget = 1;
       this.gainK = 1 - Math.exp(-B / (0.05 * sr));   // a call's loudness eases in over about 50 ms
@@ -232,8 +224,7 @@
         }
       }
       // pan: equal power around home, wandering slowly
-      let pan = this.home;
-      if (this.wander > 0) pan += this.wander * noise(this.panSeed, b * this.bdt, this.panPeriod);
+      let pan = PAN.wanderAt(this.panSeed, this.home, this.wander, b * this.bdt);
       if (this.lean !== this.leanTarget) {
         this.lean += (this.leanTarget - this.lean) * this.leanK;
         if (Math.abs(this.lean - this.leanTarget) < 1e-4) this.lean = this.leanTarget;
@@ -243,7 +234,7 @@
         this.callGain += (this.callGainTarget - this.callGain) * this.gainK;
         if (Math.abs(this.callGain - this.callGainTarget) < 1e-5) this.callGain = this.callGainTarget;
       }
-      pan = (pan > 1 ? 1 : pan < -1 ? -1 : pan) * this.width;
+      pan = PAN.place(pan, this.width);
       const th = (pan + 1) * Math.PI / 4, g = this.gain * this.callGain, gl = Math.cos(th) * g, gr = Math.sin(th) * g;
       for (let i = 0; i < B; i++) { const x = src[i]; outL[i] += x * gl; outR[i] += x * gr; }
       return true;
@@ -252,7 +243,7 @@
     get done() { return !this.cur && this.ci >= this.calls.length; }
   }
 
-  const api = { Voice, noise, TAIL_PAD, lowpass };
+  const api = { Voice, noise: PAN.noise, TAIL_PAD, lowpass };
   if (inNode) module.exports = api;
   else K.voice = api;
 })(typeof self !== 'undefined' ? self : this);

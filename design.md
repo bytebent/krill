@@ -141,9 +141,11 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
     with Talkative's odds, never waits for the floor or answers, and its calls don't hold the
     floor, aren't answered and aren't copied. Overlap with others is fine. Harmonise and eras
     still apply.
-  - **Loudness range** [low, 0] dB, low from -24 to 0 (default -6): each call's loudness is drawn
-    from this range, eased in over about 50 ms. The top is always 0, so a lane only ever gets
-    quieter than its creature, never louder; for a steadily quieter creature use its own Level.
+  - **Loudness range** [low, high] dB, both ends from -24 to 0 (default -6 to 0): each call's
+    loudness is drawn from this range, eased in over about 50 ms. The top can't go above 0, so a
+    lane only ever gets quieter than its creature, never louder. Dragging the top down turns a
+    lane that's too loud down quickly; low = high fixes its level. Ponds saved with [low, 0] play
+    exactly as before.
 
 ### 5.2 Turn-taking: the floor
 - A creature that is calling **holds the floor**.
@@ -420,9 +422,10 @@ mouth-tube purple.
 - Lengths above the preview limit show the Node command to run instead, with the pond file to save.
 - Clicking a creature's name opens it on the creature page.
 - As built: each slot row has Add/Replace (an example or a file), Talks / Ignores, the loudness
-  range (its top fixed at 0 dB), Re-roll, Edit (opens the creature on the creature page) and
+  range (both ends movable, at most 0 dB), Re-roll, Edit (opens the creature on the creature page) and
   Remove. The sketch shows the era's density, calls per lane (fainter when quieter, copies
-  outlined, answers linked) and each call's pan; click it to jump the player. Render preview
+  outlined, answers linked) and each call's pan while it sounds, worked out with the voice's own
+  pan math (home, wander, answer lean, Width; `src/pan.js`); click it to jump the player. Render preview
   renders up to 10 minutes in the worker into a WAV for the page's player and Download. [Decided]
 
 ### 7.3 Efficiency rules

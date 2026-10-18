@@ -206,6 +206,27 @@ test('lane loudness: every call is drawn from [low, 0] dB, never louder; low 0 k
   assert.equal(n.slots[2].level, undefined);
 });
 
+test('lane loudness: the top end moves too; calls stay inside [low, high], both at most 0', () => {
+  const sc = CD.conduct(pond(FOUR, p => { p.slots[0].loudness = [-18, -8]; p.slots[1].loudness = [-5, -5]; }));
+  const g0 = sc.calls.filter(c => c.slot === 0).map(c => c.gainDb), g1 = sc.calls.filter(c => c.slot === 1).map(c => c.gainDb);
+  assert.ok(g0.every(g => g >= -18 && g <= -8) && Math.max(...g0) - Math.min(...g0) > 5, 'spread ' + (Math.max(...g0) - Math.min(...g0)).toFixed(1));
+  assert.ok(g1.every(g => g === -5), 'low = high fixes the level');
+  const n = PD.normalise({ slots: [{ creature: creature('ticker'), loudness: [-3, -10] }, { creature: creature('ticker'), loudness: [-6, 4] }] }).pond;
+  assert.deepEqual(n.slots[0].loudness, [-10, -3], 'swapped ends are sorted');
+  assert.deepEqual(n.slots[1].loudness, [-6, 0], 'the top never goes above 0');
+});
+
+test('the sketch pan is the voice pan: home, wander, lean and Width', () => {
+  const PAN = require('../src/pan.js');
+  const p = pond(FOUR), sc = CD.conduct(p, { seconds: 300 });
+  const v = sc.calls.map(c => PAN.slotPanAt(p, c.slot, sc.slots[c.slot], c.t, c.lean));
+  assert.ok(v.every(x => Math.abs(x) <= p.space.width + 1e-9));
+  assert.ok(Math.min(...v) < -0.3 && Math.max(...v) > 0.3, 'both sides: ' + Math.min(...v).toFixed(2) + ' … ' + Math.max(...v).toFixed(2));
+  const byHome = sc.slots.filter(Boolean).map(s => { const vs = sc.calls.filter(c => c.slot === s.slot).map(c => PAN.slotPanAt(p, c.slot, s, c.t, c.lean)); return [s.pan, vs.reduce((a, b) => a + b, 0) / vs.length]; });
+  byHome.sort((a, b) => a[0] - b[0]);
+  for (let i = 1; i < byHome.length; i++) if (byHome[i][0] - byHome[i - 1][0] > 0.3) assert.ok(byHome[i][1] > byHome[i - 1][1], 'lanes keep their left-to-right order on average');
+});
+
 test('a lane with a lower loudness range sounds quieter in the mix', () => {
   const energy = low => {
     const p = pond(['glassfin'], q => { q.output.minutes = 0.4; q.slots[0].loudness = [low, 0]; q.output.fadeIn = 0; q.output.fadeOut = 0; });

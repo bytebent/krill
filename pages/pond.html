@@ -3142,6 +3142,62 @@ select.field{padding:0 4px}
   else (root.Krill = root.Krill || {}).version = api;
 })(typeof self !== 'undefined' ? self : this);
 
+// ---- src/pan.js
+/*
+ * krill · where a voice sits left to right
+ *
+ * One place for the pan math, so the voice (what you hear) and the pond page's sketch (what you
+ * see) can't drift apart. A voice's pan at time t is
+ *
+ *   home + wander · noise(t)  + lean  → clamped to -1..1 → times the pond's Width
+ *
+ * where home and wander come from the creature's manner, noise is slow value noise from the
+ * slot's own stream, and lean is how far an answer moves away from its caller (the voice eases
+ * into it over about half a second; the sketch uses the target).
+ *
+ * Works in the browser (Krill.pan) and in Node (module.exports). Needs only rng.js.
+ */
+(function (root) {
+  'use strict';
+
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const K = inNode ? null : (root.Krill = root.Krill || {});
+  const { hash, tag } = inNode ? require('./rng.js') : K.rng;
+
+  // value noise in -1..1, a function of time only (no state, so chunking can't change it)
+  function noise(seed, t, period) {
+    const x = t / period, k = Math.floor(x), f = x - k;
+    const a = hash(seed, k) / 2147483648 - 1, b = hash(seed, k + 1) / 2147483648 - 1;
+    const u = 0.5 - 0.5 * Math.cos(Math.PI * f);
+    return a + (b - a) * u;
+  }
+
+  // a slot's stream in a pond (the voice's seed)
+  const slotSeed = (pondSeed, i, rerolls) => hash(pondSeed, tag('slot'), i, rerolls || 0);
+
+  // the wander stream and its speed: more wander also moves faster (6–30 s per swing)
+  const wanderSeed = voiceSeed => hash(voiceSeed >>> 0, tag('pan'));
+  const period = wander => 6 + 24 * (1 - wander);
+
+  // home plus wander at time t (seconds), before the lean, clamp and Width
+  function wanderAt(wseed, home, wander, t) {
+    return wander > 0 ? home + wander * noise(wseed, t, period(wander)) : home;
+  }
+
+  // the final pan, -width..width
+  function place(p, width) { return (p > 1 ? 1 : p < -1 ? -1 : p) * width; }
+
+  // a pond slot's pan at time t with a given lean (for the sketch)
+  function slotPanAt(pond, i, slot, t, lean) {
+    const ws = wanderSeed(slotSeed(pond.seed, i, pond.slots[i] && pond.slots[i].rerolls));
+    return place(wanderAt(ws, slot.pan || 0, slot.wander || 0, t) + (lean || 0), pond.space.width);
+  }
+
+  const api = { noise, slotSeed, wanderSeed, period, wanderAt, place, slotPanAt };
+  if (inNode) module.exports = api;
+  else K.pan = api;
+})(typeof self !== 'undefined' ? self : this);
+
 // ---- src/voice.js
 /*
  * krill · one creature's voice
@@ -3171,6 +3227,7 @@ select.field{padding:0 4px}
   const E = inNode ? require('./engines.js') : K.engines;
   const PARTS = inNode ? require('./parts.js') : K.parts;
   const { hash, tag } = inNode ? require('./rng.js') : K.rng;
+  const PAN = inNode ? require('./pan.js') : K.pan;
 
   const B = E.BLOCK;
   const TAIL_PAD = 0.75;          // s after a call's release before the voice may sleep (engine + tube ring-out)
@@ -3185,14 +3242,6 @@ select.field{padding:0 4px}
   }
 
   function smooth(x) { return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); }
-
-  // value noise in -1..1, a function of time only (no state, so chunking can't change it)
-  function noise(seed, t, period) {
-    const x = t / period, k = Math.floor(x), f = x - k;
-    const a = hash(seed, k) / 2147483648 - 1, b = hash(seed, k + 1) / 2147483648 - 1;
-    const u = 0.5 - 0.5 * Math.cos(Math.PI * f);
-    return a + (b - a) * u;
-  }
 
   class Voice {
     // slot: a score slot (roll.slotInfo); calls: that slot's calls in time order
@@ -3254,8 +3303,7 @@ select.field{padding:0 4px}
       this.home = opts.pan || 0;
       this.wander = opts.wander || 0;
       this.width = opts.width == null ? 1 : opts.width;
-      this.panSeed = hash(opts.seed >>> 0, tag('pan'));
-      this.panPeriod = 6 + 24 * (1 - this.wander);
+      this.panSeed = PAN.wanderSeed(opts.seed);
       this.lean = 0; this.leanTarget = 0;
       this.callGain = 1; this.callGainTarget = 1;
       this.gainK = 1 - Math.exp(-B / (0.05 * sr));   // a call's loudness eases in over about 50 ms
@@ -3377,8 +3425,7 @@ select.field{padding:0 4px}
         }
       }
       // pan: equal power around home, wandering slowly
-      let pan = this.home;
-      if (this.wander > 0) pan += this.wander * noise(this.panSeed, b * this.bdt, this.panPeriod);
+      let pan = PAN.wanderAt(this.panSeed, this.home, this.wander, b * this.bdt);
       if (this.lean !== this.leanTarget) {
         this.lean += (this.leanTarget - this.lean) * this.leanK;
         if (Math.abs(this.lean - this.leanTarget) < 1e-4) this.lean = this.leanTarget;
@@ -3388,7 +3435,7 @@ select.field{padding:0 4px}
         this.callGain += (this.callGainTarget - this.callGain) * this.gainK;
         if (Math.abs(this.callGain - this.callGainTarget) < 1e-5) this.callGain = this.callGainTarget;
       }
-      pan = (pan > 1 ? 1 : pan < -1 ? -1 : pan) * this.width;
+      pan = PAN.place(pan, this.width);
       const th = (pan + 1) * Math.PI / 4, g = this.gain * this.callGain, gl = Math.cos(th) * g, gr = Math.sin(th) * g;
       for (let i = 0; i < B; i++) { const x = src[i]; outL[i] += x * gl; outR[i] += x * gr; }
       return true;
@@ -3397,7 +3444,7 @@ select.field{padding:0 4px}
     get done() { return !this.cur && this.ci >= this.calls.length; }
   }
 
-  const api = { Voice, noise, TAIL_PAD, lowpass };
+  const api = { Voice, noise: PAN.noise, TAIL_PAD, lowpass };
   if (inNode) module.exports = api;
   else K.voice = api;
 })(typeof self !== 'undefined' ? self : this);
@@ -3409,8 +3456,9 @@ select.field{padding:0 4px}
  * A pond is up to six slots, each holding a creature (embedded, so the file alone can re-render
  * a piece), a re-roll count and its lane settings, plus pitch, talk, space and output settings
  * and a seed. Lane settings: ignore (outside the conversation: speaks on its own, isn't heard)
- * and loudness [low, 0] dB: each call's loudness is drawn from this range, so a lane only ever
- * gets quieter than its creature, never louder (low from -24 to 0).
+ * and loudness [low, high] dB: each call's loudness is drawn from this range. Both ends lie in
+ * -24..0, so a lane only ever gets quieter than its creature, never louder; low = high fixes it.
+ * Files from before the top was movable have [low, 0] and play the same.
  * normalise() repairs and fills in like creature.normalise(); unknown keys are kept.
  *
  * Works in the browser (Krill.pond) and in Node (module.exports).
@@ -3426,7 +3474,7 @@ select.field{padding:0 4px}
   const FORMAT = 'krill-pond';
   const VERSION = 1;
   const SLOTS = 6;
-  const LOUDNESS = { min: -24, def: -6 };       // lane loudness range is [low, 0] dB
+  const LOUDNESS = { min: -24, def: -6 };       // lane loudness range is [low, high] dB, both -24..0
   const COLORS = ['var(--green)', 'var(--yellow)', 'var(--orange)', 'var(--red)', 'var(--purple)', 'var(--blue)'];   // stripe order
 
   const FIELDS = [
@@ -3495,11 +3543,15 @@ select.field{padding:0 4px}
         const r = C.normalise(s.creature);
         for (const w of r.warnings) warn.push('slot ' + (i + 1) + ': ' + w);
         const slot = Object.assign({}, s, { creature: r.creature, rerolls: Number.isInteger(s.rerolls) && s.rerolls > 0 ? s.rerolls : 0, ignore: !!s.ignore });
-        let low = LOUDNESS.def;
-        if (Array.isArray(s.loudness) && Number.isFinite(+s.loudness[0])) low = +s.loudness[0];
+        let low = LOUDNESS.def, high = 0;
+        if (Array.isArray(s.loudness) && Number.isFinite(+s.loudness[0])) {
+          low = +s.loudness[0];
+          if (Number.isFinite(+s.loudness[1])) high = +s.loudness[1];
+        }
         else if (Number.isFinite(+s.level) || Number.isFinite(+s.dynamics)) low = Math.min(0, +s.level || 0) - (+s.dynamics || 0);   // early files
         delete slot.level; delete slot.dynamics;
-        slot.loudness = [clamp(Math.round(low * 10) / 10, LOUDNESS.min, 0), 0];
+        const q = x => clamp(Math.round(x * 10) / 10, LOUDNESS.min, 0);
+        slot.loudness = [Math.min(q(low), q(high)), Math.max(q(low), q(high))];
         o.slots.push(slot);
       } catch (e) { warn.push('slot ' + (i + 1) + ': ' + e.message + ', emptied'); o.slots.push(null); }
     }
@@ -3544,7 +3596,7 @@ select.field{padding:0 4px}
  *   ignore     a lane set to ignore others is outside the conversation: it starts whenever its
  *              rest is over (odds: Talkative), never waits for the floor or answers, and its
  *              calls don't hold the floor, aren't answered and aren't remembered.
- *   loudness   each call's loudness is drawn from the lane's range [low, 0] dB.
+ *   loudness   each call's loudness is drawn from the lane's range [low, high] dB (both ≤ 0).
  *   streams    each slot's decisions and sounds come from its own stream (seed, slot, re-rolls),
  *              so re-rolling a slot changes that creature; the others only shift where they react.
  *
@@ -3615,7 +3667,7 @@ select.field{padding:0 4px}
       if (!s) return;
       const rng = new Rng(hash(seed, tag('slot'), i, s.rerolls || 0));
       const caller = new R.Caller(s.creature, pitch, rng);
-      slots.push({ i, caller, cc: caller.cc, rng, busyUntil: -1, next: Infinity, home: caller.cc.pan, ignore: !!s.ignore, low: s.loudness ? s.loudness[0] : 0 });
+      slots.push({ i, caller, cc: caller.cc, rng, busyUntil: -1, next: Infinity, home: caller.cc.pan, ignore: !!s.ignore, low: s.loudness ? s.loudness[0] : 0, high: s.loudness ? s.loudness[1] || 0 : 0 });
     });
     const score = { format: 'krill-score', version: 1, seconds, seed, pitch: pitch.label, slots: [], calls: [], eras: era.knots.filter(k => k.t <= seconds) };
     score.slots = pond.slots.map((s, i) => s ? Object.assign(R.slotInfo(slots.find(x => x.i === i).cc), { slot: i, color: PD.COLORS[i] }) : null);
@@ -3652,7 +3704,7 @@ select.field{padding:0 4px}
     function place(s, call, info) {
       call.slot = s.i;
       call.depth = info.depth;
-      call.gainDb = s.low < 0 ? s.low * s.rng.next() : 0;
+      call.gainDb = s.low < s.high ? s.high + (s.low - s.high) * s.rng.next() : s.high;   // [low, 0] draws as before
       call.lineage = s.ignore ? null : remember(call, call.kind === 'copy' ? info.lineage : null);
       if (info.of != null) call.of = info.of;
       if (info.from != null) call.from = info.from;
@@ -3754,6 +3806,7 @@ select.field{padding:0 4px}
   const K = inNode ? null : (root.Krill = root.Krill || {});
   const E = inNode ? require('./engines.js') : K.engines;
   const { Voice } = inNode ? require('./voice.js') : K.voice;
+  const PAN = inNode ? require('./pan.js') : K.pan;
   const R = inNode ? require('./roll.js') : K.roll;
   const S = inNode ? require('./scales.js') : K.scales;
   const { hash, tag } = inNode ? require('./rng.js') : K.rng;
@@ -3896,7 +3949,7 @@ select.field{padding:0 4px}
       if (!slot) return;
       const calls = score.calls.filter(c => c.slot === i);
       voices.push(new Voice(slot, calls, {
-        sampleRate: sr, seed: hash(pond.seed, tag('slot'), i, pond.slots[i].rerolls || 0),
+        sampleRate: sr, seed: PAN.slotSeed(pond.seed, i, pond.slots[i].rerolls),
         pan: slot.pan, wander: slot.wander, level: slot.level, width: pond.space.width,
       }));
     });
@@ -5428,8 +5481,9 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
  * A pond is up to six slots, each holding a creature (embedded, so the file alone can re-render
  * a piece), a re-roll count and its lane settings, plus pitch, talk, space and output settings
  * and a seed. Lane settings: ignore (outside the conversation: speaks on its own, isn't heard)
- * and loudness [low, 0] dB: each call's loudness is drawn from this range, so a lane only ever
- * gets quieter than its creature, never louder (low from -24 to 0).
+ * and loudness [low, high] dB: each call's loudness is drawn from this range. Both ends lie in
+ * -24..0, so a lane only ever gets quieter than its creature, never louder; low = high fixes it.
+ * Files from before the top was movable have [low, 0] and play the same.
  * normalise() repairs and fills in like creature.normalise(); unknown keys are kept.
  *
  * Works in the browser (Krill.pond) and in Node (module.exports).
@@ -5445,7 +5499,7 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
   const FORMAT = 'krill-pond';
   const VERSION = 1;
   const SLOTS = 6;
-  const LOUDNESS = { min: -24, def: -6 };       // lane loudness range is [low, 0] dB
+  const LOUDNESS = { min: -24, def: -6 };       // lane loudness range is [low, high] dB, both -24..0
   const COLORS = ['var(--green)', 'var(--yellow)', 'var(--orange)', 'var(--red)', 'var(--purple)', 'var(--blue)'];   // stripe order
 
   const FIELDS = [
@@ -5514,11 +5568,15 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
         const r = C.normalise(s.creature);
         for (const w of r.warnings) warn.push('slot ' + (i + 1) + ': ' + w);
         const slot = Object.assign({}, s, { creature: r.creature, rerolls: Number.isInteger(s.rerolls) && s.rerolls > 0 ? s.rerolls : 0, ignore: !!s.ignore });
-        let low = LOUDNESS.def;
-        if (Array.isArray(s.loudness) && Number.isFinite(+s.loudness[0])) low = +s.loudness[0];
+        let low = LOUDNESS.def, high = 0;
+        if (Array.isArray(s.loudness) && Number.isFinite(+s.loudness[0])) {
+          low = +s.loudness[0];
+          if (Number.isFinite(+s.loudness[1])) high = +s.loudness[1];
+        }
         else if (Number.isFinite(+s.level) || Number.isFinite(+s.dynamics)) low = Math.min(0, +s.level || 0) - (+s.dynamics || 0);   // early files
         delete slot.level; delete slot.dynamics;
-        slot.loudness = [clamp(Math.round(low * 10) / 10, LOUDNESS.min, 0), 0];
+        const q = x => clamp(Math.round(x * 10) / 10, LOUDNESS.min, 0);
+        slot.loudness = [Math.min(q(low), q(high)), Math.max(q(low), q(high))];
         o.slots.push(slot);
       } catch (e) { warn.push('slot ' + (i + 1) + ': ' + e.message + ', emptied'); o.slots.push(null); }
     }
@@ -5563,7 +5621,7 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
  *   ignore     a lane set to ignore others is outside the conversation: it starts whenever its
  *              rest is over (odds: Talkative), never waits for the floor or answers, and its
  *              calls don't hold the floor, aren't answered and aren't remembered.
- *   loudness   each call's loudness is drawn from the lane's range [low, 0] dB.
+ *   loudness   each call's loudness is drawn from the lane's range [low, high] dB (both ≤ 0).
  *   streams    each slot's decisions and sounds come from its own stream (seed, slot, re-rolls),
  *              so re-rolling a slot changes that creature; the others only shift where they react.
  *
@@ -5634,7 +5692,7 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
       if (!s) return;
       const rng = new Rng(hash(seed, tag('slot'), i, s.rerolls || 0));
       const caller = new R.Caller(s.creature, pitch, rng);
-      slots.push({ i, caller, cc: caller.cc, rng, busyUntil: -1, next: Infinity, home: caller.cc.pan, ignore: !!s.ignore, low: s.loudness ? s.loudness[0] : 0 });
+      slots.push({ i, caller, cc: caller.cc, rng, busyUntil: -1, next: Infinity, home: caller.cc.pan, ignore: !!s.ignore, low: s.loudness ? s.loudness[0] : 0, high: s.loudness ? s.loudness[1] || 0 : 0 });
     });
     const score = { format: 'krill-score', version: 1, seconds, seed, pitch: pitch.label, slots: [], calls: [], eras: era.knots.filter(k => k.t <= seconds) };
     score.slots = pond.slots.map((s, i) => s ? Object.assign(R.slotInfo(slots.find(x => x.i === i).cc), { slot: i, color: PD.COLORS[i] }) : null);
@@ -5671,7 +5729,7 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
     function place(s, call, info) {
       call.slot = s.i;
       call.depth = info.depth;
-      call.gainDb = s.low < 0 ? s.low * s.rng.next() : 0;
+      call.gainDb = s.low < s.high ? s.high + (s.low - s.high) * s.rng.next() : s.high;   // [low, 0] draws as before
       call.lineage = s.ignore ? null : remember(call, call.kind === 'copy' ? info.lineage : null);
       if (info.of != null) call.of = info.of;
       if (info.from != null) call.from = info.from;
@@ -5750,6 +5808,62 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
   const api = { conduct, eraWalk, CHAIN };
   if (inNode) module.exports = api;
   else K.conductor = api;
+})(typeof self !== 'undefined' ? self : this);
+
+// ---- src/pan.js
+/*
+ * krill · where a voice sits left to right
+ *
+ * One place for the pan math, so the voice (what you hear) and the pond page's sketch (what you
+ * see) can't drift apart. A voice's pan at time t is
+ *
+ *   home + wander · noise(t)  + lean  → clamped to -1..1 → times the pond's Width
+ *
+ * where home and wander come from the creature's manner, noise is slow value noise from the
+ * slot's own stream, and lean is how far an answer moves away from its caller (the voice eases
+ * into it over about half a second; the sketch uses the target).
+ *
+ * Works in the browser (Krill.pan) and in Node (module.exports). Needs only rng.js.
+ */
+(function (root) {
+  'use strict';
+
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const K = inNode ? null : (root.Krill = root.Krill || {});
+  const { hash, tag } = inNode ? require('./rng.js') : K.rng;
+
+  // value noise in -1..1, a function of time only (no state, so chunking can't change it)
+  function noise(seed, t, period) {
+    const x = t / period, k = Math.floor(x), f = x - k;
+    const a = hash(seed, k) / 2147483648 - 1, b = hash(seed, k + 1) / 2147483648 - 1;
+    const u = 0.5 - 0.5 * Math.cos(Math.PI * f);
+    return a + (b - a) * u;
+  }
+
+  // a slot's stream in a pond (the voice's seed)
+  const slotSeed = (pondSeed, i, rerolls) => hash(pondSeed, tag('slot'), i, rerolls || 0);
+
+  // the wander stream and its speed: more wander also moves faster (6–30 s per swing)
+  const wanderSeed = voiceSeed => hash(voiceSeed >>> 0, tag('pan'));
+  const period = wander => 6 + 24 * (1 - wander);
+
+  // home plus wander at time t (seconds), before the lean, clamp and Width
+  function wanderAt(wseed, home, wander, t) {
+    return wander > 0 ? home + wander * noise(wseed, t, period(wander)) : home;
+  }
+
+  // the final pan, -width..width
+  function place(p, width) { return (p > 1 ? 1 : p < -1 ? -1 : p) * width; }
+
+  // a pond slot's pan at time t with a given lean (for the sketch)
+  function slotPanAt(pond, i, slot, t, lean) {
+    const ws = wanderSeed(slotSeed(pond.seed, i, pond.slots[i] && pond.slots[i].rerolls));
+    return place(wanderAt(ws, slot.pan || 0, slot.wander || 0, t) + (lean || 0), pond.space.width);
+  }
+
+  const api = { noise, slotSeed, wanderSeed, period, wanderAt, place, slotPanAt };
+  if (inNode) module.exports = api;
+  else K.pan = api;
 })(typeof self !== 'undefined' ? self : this);
 
 // ---- pages/src/kit.js
@@ -6075,7 +6189,7 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
  */
 (function () {
   'use strict';
-  const K = window.Krill, C = K.creature, S = K.scales, PD = K.pond, CD = K.conductor, kit = K.kit, el = kit.el;
+  const K = window.Krill, C = K.creature, S = K.scales, PD = K.pond, CD = K.conductor, PAN = K.pan, kit = K.kit, el = kit.el;
   const { Rng } = K.rng;
   const STORE = 'krill.pond.v1', CREATURE_STORE = 'krill.creature.v1';
   const PREVIEW_MAX_MIN = 10;
@@ -6125,8 +6239,8 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
       label: null }).el.title = 'Ignores: speaks on its own, outside the conversation';
     const rbox = el('div'); row.appendChild(rbox);
     kit.Range(rbox, { name: 'Loudness', min: -24, max: 0, unit: 'dB', c: HEX[i], round: 0.5,
-      title: 'Each call is drawn from this range; the top stays at 0 dB, so a lane only gets quieter',
-      get: () => s.loudness, set: ([a]) => { s.loudness = [Math.min(0, a), 0]; changed(); } });
+      title: 'Each call is drawn from this range, at most 0 dB, so a lane only gets quieter. Drag the top down if a lane is too loud',
+      get: () => s.loudness, set: ([a, b]) => { s.loudness = [Math.min(0, a, b), Math.min(0, Math.max(a, b))]; changed(); } });
     const btns = el('div', 'btns');
     const b = (label, title, fn) => { const x = el('button', 'gel grey small', label); x.type = 'button'; x.title = title; x.addEventListener('click', fn); btns.appendChild(x); return x; };
     b('↻', 'Re-roll this creature: new calls, the others stay', () => { s.rerolls++; changed(); buildSlots(); });
@@ -6217,7 +6331,7 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
     g.fillStyle = '#060608'; g.fillRect(0, 0, W, H);
     if (!score) return;
     const secs = score.seconds, x0 = 34 * d, x1 = W - 8 * d, X = t => x0 + t / secs * (x1 - x0);
-    const eraH = 18 * d, panH = 34 * d, laneTop = eraH + 6 * d, laneH = (H - laneTop - panH - 10 * d) / PD.SLOTS;
+    const eraH = 18 * d, panH = 54 * d, laneTop = eraH + 6 * d, laneH = (H - laneTop - panH - 10 * d) / PD.SLOTS;
     layout = { X, x0, x1, H };
     g.font = (9.5 * d) + 'px Monaco, monospace'; g.textBaseline = 'middle';
     // era density, as a line across the top
@@ -6248,15 +6362,27 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
       if (c.kind === 'copy') { g.globalAlpha = 1; g.strokeStyle = '#fff'; g.lineWidth = 1 * d; g.strokeRect(px + 0.5, top + 0.5, w - 1, h - 1); }
     }
     g.globalAlpha = 1;
-    // pan: where each call sits, left at the top of the strip, right at the bottom
-    const py0 = H - panH - 2 * d;
+    // pan: where each call sits while it sounds (the voice's own math: home, wander, answer lean,
+    // Width), left at the top of the strip, centre dashed, right at the bottom
+    const py0 = H - panH - 4 * d, PY = p => py0 + 3 * d + (p + 1) / 2 * (panH - 6 * d);
     g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(x0, py0, x1 - x0, panH);
-    g.fillStyle = 'rgba(136,255,136,.7)'; g.fillText('L', 8 * d, py0 + 6 * d); g.fillText('R', 8 * d, py0 + panH - 6 * d);
+    g.strokeStyle = 'rgba(136,255,136,.25)'; g.lineWidth = 1; g.setLineDash([3 * d, 4 * d]);
+    g.beginPath(); g.moveTo(x0, PY(0)); g.lineTo(x1, PY(0)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = 'rgba(136,255,136,.7)';
+    g.fillText('L', 8 * d, PY(-1)); g.fillText('C', 8 * d, PY(0)); g.fillText('R', 8 * d, PY(1));
+    g.lineWidth = 2 * d; g.lineCap = 'round';
     for (const c of score.calls) {
-      const sl = score.slots[c.slot], pan = Math.max(-1, Math.min(1, (sl.pan + (c.lean || 0)))) * pond.space.width;
-      g.fillStyle = HEX[c.slot];
-      g.fillRect(X(c.t), py0 + (pan + 1) / 2 * (panH - 4 * d), 2 * d, 3 * d);
+      const sl = score.slots[c.slot]; if (!sl) continue;
+      const n = Math.max(1, Math.min(8, Math.ceil((c.end - c.t) / 2)));
+      g.strokeStyle = HEX[c.slot]; g.beginPath();
+      for (let k = 0; k <= n; k++) {
+        const t = c.t + (c.end - c.t) * k / n, px = X(t), py = PY(PAN.slotPanAt(pond, c.slot, sl, t, c.lean));
+        if (k) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+      g.lineTo(Math.max(X(c.end), X(c.t) + 1.5 * d), PY(PAN.slotPanAt(pond, c.slot, sl, c.end, c.lean)));
+      g.stroke();
     }
+    g.lineCap = 'butt';
     // minute ticks
     g.fillStyle = 'rgba(136,255,136,.5)';
     const step = secs > 1200 ? 300 : secs > 300 ? 60 : secs > 60 ? 10 : 5;

@@ -16,7 +16,7 @@
  *   ignore     a lane set to ignore others is outside the conversation: it starts whenever its
  *              rest is over (odds: Talkative), never waits for the floor or answers, and its
  *              calls don't hold the floor, aren't answered and aren't remembered.
- *   loudness   each call's loudness is drawn from the lane's range [low, 0] dB.
+ *   loudness   each call's loudness is drawn from the lane's range [low, high] dB (both ≤ 0).
  *   streams    each slot's decisions and sounds come from its own stream (seed, slot, re-rolls),
  *              so re-rolling a slot changes that creature; the others only shift where they react.
  *
@@ -87,7 +87,7 @@
       if (!s) return;
       const rng = new Rng(hash(seed, tag('slot'), i, s.rerolls || 0));
       const caller = new R.Caller(s.creature, pitch, rng);
-      slots.push({ i, caller, cc: caller.cc, rng, busyUntil: -1, next: Infinity, home: caller.cc.pan, ignore: !!s.ignore, low: s.loudness ? s.loudness[0] : 0 });
+      slots.push({ i, caller, cc: caller.cc, rng, busyUntil: -1, next: Infinity, home: caller.cc.pan, ignore: !!s.ignore, low: s.loudness ? s.loudness[0] : 0, high: s.loudness ? s.loudness[1] || 0 : 0 });
     });
     const score = { format: 'krill-score', version: 1, seconds, seed, pitch: pitch.label, slots: [], calls: [], eras: era.knots.filter(k => k.t <= seconds) };
     score.slots = pond.slots.map((s, i) => s ? Object.assign(R.slotInfo(slots.find(x => x.i === i).cc), { slot: i, color: PD.COLORS[i] }) : null);
@@ -124,7 +124,7 @@
     function place(s, call, info) {
       call.slot = s.i;
       call.depth = info.depth;
-      call.gainDb = s.low < 0 ? s.low * s.rng.next() : 0;
+      call.gainDb = s.low < s.high ? s.high + (s.low - s.high) * s.rng.next() : s.high;   // [low, 0] draws as before
       call.lineage = s.ignore ? null : remember(call, call.kind === 'copy' ? info.lineage : null);
       if (info.of != null) call.of = info.of;
       if (info.from != null) call.from = info.from;

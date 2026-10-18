@@ -19,6 +19,7 @@ src/               krill code, plain JS, runs in browser and Node
   scales.js        scales, snapping, harmonise
   roll.js          one creature: ranges → units → calls, signature
   conductor.js     floor, turns, answers, motifs, mimicry, eras → score
+  pan.js           where a voice sits: home, wander, lean, Width (voice and sketch)
   voice.js         score → audio for one creature (engine, tube, pan)
   mixer.js         all voices → stereo, limiter, fades
   wav.js           streaming WAV writer, info chunk

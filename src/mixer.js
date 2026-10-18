@@ -18,6 +18,7 @@
   const K = inNode ? null : (root.Krill = root.Krill || {});
   const E = inNode ? require('./engines.js') : K.engines;
   const { Voice } = inNode ? require('./voice.js') : K.voice;
+  const PAN = inNode ? require('./pan.js') : K.pan;
   const R = inNode ? require('./roll.js') : K.roll;
   const S = inNode ? require('./scales.js') : K.scales;
   const { hash, tag } = inNode ? require('./rng.js') : K.rng;
@@ -160,7 +161,7 @@
       if (!slot) return;
       const calls = score.calls.filter(c => c.slot === i);
       voices.push(new Voice(slot, calls, {
-        sampleRate: sr, seed: hash(pond.seed, tag('slot'), i, pond.slots[i].rerolls || 0),
+        sampleRate: sr, seed: PAN.slotSeed(pond.seed, i, pond.slots[i].rerolls),
         pan: slot.pan, wander: slot.wander, level: slot.level, width: pond.space.width,
       }));
     });
