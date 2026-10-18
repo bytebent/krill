@@ -239,3 +239,32 @@ test('low-pass: off costs nothing and changes nothing; on cuts the highs at 24 d
   const coef = require('../src/voice.js').lowpass(1000, Math.SQRT1_2, SR);
   assert.ok(Math.abs((coef[0] + coef[1] + coef[2]) / (1 + coef[3] + coef[4]) - 1) < 1e-9, 'unity gain at DC');
 });
+
+test('export: stepped in any size it gives the same bytes as the in-memory WAV, header last', () => {
+  const PD = require('../src/pond.js'), P = require('../src/preview.js');
+  const pond = PD.normalise(fs.readFileSync(path.join(__dirname, '..', 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8')).pond;
+  pond.output.minutes = 0.25; pond.output.bits = 16;
+  const whole = P.pondWav(pond, {}).bytes;
+  for (const step of [0.37, 10]) {
+    const ex = P.pondExporter(pond), parts = [];
+    while (!ex.done) parts.push(ex.step(step));
+    const u = new Uint8Array(parts.reduce((a, x) => a + x.length, 0)); let o = 0;
+    for (const x of parts) { u.set(x, o); o += x.length; }
+    assert.equal(u.length, ex.bytes, 'size known before rendering');
+    u.set(ex.header, 0);
+    assert.ok(Buffer.from(u).equals(Buffer.from(whole)), 'step ' + step);
+  }
+  assert.equal(P.pondExporter(pond).base, 'krill_' + pond.seed + '_15s');
+});
+
+test('a shorter render of a seed is exactly the start of a longer one (only the fade-out moves)', () => {
+  const PD = require('../src/pond.js');
+  const read = minutes => {
+    const p = PD.normalise(fs.readFileSync(path.join(__dirname, '..', 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8')).pond;
+    p.output.minutes = minutes; p.output.fadeOut = 0;
+    const job = M.pondRender(p), n = 48000 * 20, L = new Float32Array(n), R = new Float32Array(n);
+    job.render.read(L, R, n); return [L, R];
+  };
+  const [a, b] = [read(0.5), read(3)];
+  assert.ok(Buffer.from(a[0].buffer).equals(Buffer.from(b[0].buffer)) && Buffer.from(a[1].buffer).equals(Buffer.from(b[1].buffer)));
+});

@@ -145,27 +145,55 @@
   }
 
   // a pond (or its first `seconds`) straight into WAV bytes (the pond page's preview)
-  function pondWav(pond, opts, onProgress) {
-    const job = M.pondRender(pond, { seconds: opts.seconds });
-    const sink = W.memorySink();
+  // A pond export in steps, so a long piece can stream to disk without being held in memory.
+  //   step(seconds) renders the next stretch and returns its bytes (append them in order);
+  //   once `done`, `header` is the final header, to be written over the file's first bytes.
+  // pond: a pond whose output settings (length, bits, fades, level) are the export's.
+  function pondExporter(pondIn, opts) {
+    const job = M.pondRender(pondIn, { seconds: opts && opts.seconds });
     const p = job.pond;
+    let pending = [], header = null;
+    const sink = { write(b) { pending.push(b.slice()); }, patch(off, b) { header = b.slice(); } };
     const wav = new W.WavWriter(sink, {
       sampleRate: 48000, bits: p.output.bits, seed: p.seed,
       title: 'krill · ' + p.name + ' · seed ' + p.seed, software: 'krill ' + job.meta.krill,
       comment: p.name + ' pond, ' + job.meta.pitch + ', ' + job.meta.seconds + ' s, seed ' + p.seed, meta: job.meta,
     });
-    const CH = 48000, L = new Float32Array(CH), Rr = new Float32Array(CH);
-    let lastP = -1;
-    while (!job.render.done) {
-      wav.write(L, Rr, job.render.read(L, Rr, CH));
-      const q = Math.floor(job.render.progress * 200);
-      if (onProgress && q !== lastP) { lastP = q; onProgress(job.render.progress); }
-    }
-    wav.finish();
-    return { bytes: sink.bytes(), fileName: job.fileName, stats: job.render.stats(), calls: job.score.calls.length };
+    const frames = job.render.frames, bytes = wav.headerSize + frames * 2 * (wav.bits / 8) + ((frames * 2 * (wav.bits / 8)) & 1);
+    const CH = 4800, L = new Float32Array(CH), Rr = new Float32Array(CH);
+    const ex = {
+      fileName: job.fileName, base: job.fileName.replace(/\.wav$/, ''), pond: p, bytes, calls: job.score.calls.length,
+      done: false, header: null, progress: 0,
+      step(seconds) {
+        let left = Math.max(1, Math.round((seconds || 5) * 48000));
+        while (left > 0 && !job.render.done) { const n = job.render.read(L, Rr, Math.min(CH, left)); wav.write(L, Rr, n); left -= n; }
+        ex.progress = job.render.progress;
+        if (job.render.done && !ex.done) { wav.finish(); ex.done = true; ex.header = header; ex.stats = job.render.stats(); }
+        const total = pending.reduce((a, x) => a + x.length, 0), out = new Uint8Array(total);
+        let o = 0; for (const x of pending) { out.set(x, o); o += x.length; }
+        pending = [];
+        return out;
+      },
+    };
+    return ex;
   }
 
-  const api = { previewCall, spectrogram, soloWav, pondWav, START };
+  // a whole pond into WAV bytes in memory (Render preview)
+  function pondWav(pond, opts, onProgress) {
+    const ex = pondExporter(pond, opts), parts = [];
+    let lastP = -1;
+    while (!ex.done) {
+      parts.push(ex.step(1));
+      const q = Math.floor(ex.progress * 200);
+      if (onProgress && q !== lastP) { lastP = q; onProgress(ex.progress); }
+    }
+    const out = new Uint8Array(parts.reduce((a, x) => a + x.length, 0));
+    let o = 0; for (const x of parts) { out.set(x, o); o += x.length; }
+    out.set(ex.header, 0);
+    return { bytes: out, fileName: ex.fileName, stats: ex.stats, calls: ex.calls };
+  }
+
+  const api = { previewCall, spectrogram, soloWav, pondWav, pondExporter, START };
   if (inNode) module.exports = api;
   else K.preview = api;
 })(typeof self !== 'undefined' ? self : this);

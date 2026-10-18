@@ -153,6 +153,19 @@ select.field{padding:0 4px}
 #cmd{font:11px var(--mono);color:var(--ink-soft);user-select:all}
 .lenbox{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700}
 .lenbox input{width:64px}
+.sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(40,40,48,.35);display:flex;align-items:flex-start;justify-content:center;padding-top:90px}
+.sheet-bg[hidden]{display:none}
+.sheet{width:460px;border:1px solid #7d7d86;border-radius:9px;overflow:clip;background:var(--platinum,#e4e4e8);box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.sheet .titlebar h2{margin:0;font-size:13px;font-weight:700;white-space:nowrap}
+.sheet .in{padding:14px 18px 6px;display:flex;flex-direction:column;gap:14px}
+.sheet .line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;font-weight:700}
+.sheet .line input.field{width:64px}
+.sheet .knobs{justify-content:flex-start;gap:6px 18px;align-items:center}
+.sheet label.chk{display:flex;align-items:center;gap:8px;font-size:12px}
+.sheet .note{margin:0}
+.sheet .foot{display:flex;align-items:center;gap:10px;padding:10px 18px 14px}
+.sheet .foot .progress{flex:1;width:auto}
+.sheet .foot .grow{flex:1}
 </style>
 </head>
 <body>
@@ -183,9 +196,9 @@ select.field{padding:0 4px}
       <fieldset><legend><span class="dot"></span>Space · Output</legend><div class="knobs" id="g-out"></div></fieldset>
     </div>
 
-    <p class="note" id="longNote" hidden style="margin-top:12px">Previews render up to 10 minutes here. For the full length, save the pond and run: <span id="cmd"></span></p>
     <div class="actions">
-      <button class="gel" id="render" type="button">Render preview</button>
+      <button class="gel" id="export" type="button">Export&#x2026;</button>
+      <button class="gel grey" id="render" type="button" title="Render up to the first 10 minutes to listen to here">Preview</button>
       <span class="progress" id="prog"><i></i></span>
       <span class="sep"></span>
       <span class="lenbox">Seed <input class="field" id="seed" type="number" min="1" step="1" aria-label="Seed"><button class="sq" id="dice" type="button" aria-label="Random seed" title="Random seed">&#x2684;</button></span>
@@ -199,7 +212,23 @@ select.field{padding:0 4px}
     </div>
   </div>
 </div>
-<input type="file" id="file" accept=".json,application/json" hidden>
+<div class="sheet-bg" id="exportSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="exTitle">
+    <div class="titlebar"><span class="closebox" aria-hidden="true"></span><span class="lines"></span><h2 id="exTitle">Export</h2><span class="lines"></span></div>
+    <div class="in">
+      <div class="line"><span>Length</span><span id="exLenSeg"></span><input class="field" id="exMin" type="number" min="0.1" max="600" step="0.5" aria-label="Length in minutes"> min</div>
+      <div class="knobs" id="exOut"></div>
+      <label class="chk"><input type="checkbox" id="exPond" checked> Also save the pond file, to render this piece again</label>
+      <p class="note" id="exNote"></p>
+    </div>
+    <div class="foot">
+      <span class="progress" id="exProg"><i></i></span><span class="grow" id="exGrow"></span>
+      <button class="gel grey small" id="exCancel" type="button">Cancel</button>
+      <button class="gel" id="exGo" type="button">Export</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="file" accept=".json,application/json,.wav,audio/wav,audio/x-wav" hidden>
 <script type="text/plain" id="worker-src">// ---- vendor/throat-engine.js
 /*
  * Throat engine v0.1 · bytebent
@@ -3570,9 +3599,14 @@ select.field{padding:0 4px}
   const fileName = p => (p.name || 'pond').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.krill-pond.json';
 
   // a new lane for a creature
+  // the shared name of an export's WAV and pond file: krill_<seed>_<length>
+  function exportName(pond, seconds) {
+    const s = seconds > 0 ? seconds : pond.output.minutes * 60;
+    return 'krill_' + pond.seed + '_' + (s >= 60 && s % 60 === 0 ? (s / 60) + 'm' : Math.round(s) + 's');
+  }
   const slotFor = (creature, opts) => Object.assign({ creature, rerolls: 0, ignore: false, loudness: [LOUDNESS.def, 0] }, opts || {});
 
-  const api = { FORMAT, VERSION, SLOTS, COLORS, FIELDS, LOUDNESS, defaults, normalise, serialise, fileName, slotFor };
+  const api = { FORMAT, VERSION, SLOTS, COLORS, FIELDS, LOUDNESS, defaults, normalise, serialise, fileName, exportName, slotFor };
   if (inNode) module.exports = api;
   else K.pond = api;
 })(typeof self !== 'undefined' ? self : this);
@@ -3956,8 +3990,7 @@ select.field{padding:0 4px}
     const fadeIn = Math.min(pond.output.fadeIn, seconds * 0.25), fadeOut = Math.min(pond.output.fadeOut, seconds * 0.25);
     const render = new Render(voices, { sampleRate: sr, frames: Math.round(seconds * sr), level: pond.output.level, fadeIn, fadeOut });
     const meta = { krill: VER.KRILL, engines: VER.ENGINES, kind: 'pond', seed: pond.seed, seconds, sampleRate: sr, pitch: score.pitch, pond };
-    const len = seconds >= 60 && seconds % 60 === 0 ? (seconds / 60) + 'm' : Math.round(seconds) + 's';
-    return { render, score, meta, pond, fileName: 'krill_' + pond.seed + '_' + len + '.wav' };
+    return { render, score, meta, pond, fileName: PD.exportName(pond, seconds) + '.wav' };
   }
 
   // ---------- a creature on its own ----------
@@ -4298,27 +4331,55 @@ select.field{padding:0 4px}
   }
 
   // a pond (or its first `seconds`) straight into WAV bytes (the pond page's preview)
-  function pondWav(pond, opts, onProgress) {
-    const job = M.pondRender(pond, { seconds: opts.seconds });
-    const sink = W.memorySink();
+  // A pond export in steps, so a long piece can stream to disk without being held in memory.
+  //   step(seconds) renders the next stretch and returns its bytes (append them in order);
+  //   once `done`, `header` is the final header, to be written over the file's first bytes.
+  // pond: a pond whose output settings (length, bits, fades, level) are the export's.
+  function pondExporter(pondIn, opts) {
+    const job = M.pondRender(pondIn, { seconds: opts && opts.seconds });
     const p = job.pond;
+    let pending = [], header = null;
+    const sink = { write(b) { pending.push(b.slice()); }, patch(off, b) { header = b.slice(); } };
     const wav = new W.WavWriter(sink, {
       sampleRate: 48000, bits: p.output.bits, seed: p.seed,
       title: 'krill · ' + p.name + ' · seed ' + p.seed, software: 'krill ' + job.meta.krill,
       comment: p.name + ' pond, ' + job.meta.pitch + ', ' + job.meta.seconds + ' s, seed ' + p.seed, meta: job.meta,
     });
-    const CH = 48000, L = new Float32Array(CH), Rr = new Float32Array(CH);
-    let lastP = -1;
-    while (!job.render.done) {
-      wav.write(L, Rr, job.render.read(L, Rr, CH));
-      const q = Math.floor(job.render.progress * 200);
-      if (onProgress && q !== lastP) { lastP = q; onProgress(job.render.progress); }
-    }
-    wav.finish();
-    return { bytes: sink.bytes(), fileName: job.fileName, stats: job.render.stats(), calls: job.score.calls.length };
+    const frames = job.render.frames, bytes = wav.headerSize + frames * 2 * (wav.bits / 8) + ((frames * 2 * (wav.bits / 8)) & 1);
+    const CH = 4800, L = new Float32Array(CH), Rr = new Float32Array(CH);
+    const ex = {
+      fileName: job.fileName, base: job.fileName.replace(/\.wav$/, ''), pond: p, bytes, calls: job.score.calls.length,
+      done: false, header: null, progress: 0,
+      step(seconds) {
+        let left = Math.max(1, Math.round((seconds || 5) * 48000));
+        while (left > 0 && !job.render.done) { const n = job.render.read(L, Rr, Math.min(CH, left)); wav.write(L, Rr, n); left -= n; }
+        ex.progress = job.render.progress;
+        if (job.render.done && !ex.done) { wav.finish(); ex.done = true; ex.header = header; ex.stats = job.render.stats(); }
+        const total = pending.reduce((a, x) => a + x.length, 0), out = new Uint8Array(total);
+        let o = 0; for (const x of pending) { out.set(x, o); o += x.length; }
+        pending = [];
+        return out;
+      },
+    };
+    return ex;
   }
 
-  const api = { previewCall, spectrogram, soloWav, pondWav, START };
+  // a whole pond into WAV bytes in memory (Render preview)
+  function pondWav(pond, opts, onProgress) {
+    const ex = pondExporter(pond, opts), parts = [];
+    let lastP = -1;
+    while (!ex.done) {
+      parts.push(ex.step(1));
+      const q = Math.floor(ex.progress * 200);
+      if (onProgress && q !== lastP) { lastP = q; onProgress(ex.progress); }
+    }
+    const out = new Uint8Array(parts.reduce((a, x) => a + x.length, 0));
+    let o = 0; for (const x of parts) { out.set(x, o); o += x.length; }
+    out.set(ex.header, 0);
+    return { bytes: out, fileName: ex.fileName, stats: ex.stats, calls: ex.calls };
+  }
+
+  const api = { previewCall, spectrogram, soloWav, pondWav, pondExporter, START };
   if (inNode) module.exports = api;
   else K.preview = api;
 })(typeof self !== 'undefined' ? self : this);
@@ -4326,11 +4387,28 @@ select.field{padding:0 4px}
 // ---- pages/src/worker.js
 // krill render worker: the engines and krill's modules are loaded before this file.
 // Messages in:  { id, type: 'call' | 'signature' | 'solo', creature, pitch, seed, seconds, bits } · { id, type: 'pond', pond, seconds }
+//               { id, type: 'exportStart', pond } → { fileName, base, bytes, calls } · { id, type: 'exportStep', seconds }
+//               → { bytes, progress, done, header (when done), stats } · { id, type: 'exportStop' }
 // Messages out: { id, type: 'progress', p } · { id, type: 'done', result } · { id, type: 'error', message }
 'use strict';
+let exp = null;              // the export in progress, stepped by the page so it can write as it goes
 self.onmessage = e => {
   const m = e.data, K = self.Krill;
   try {
+    if (m.type === 'exportStart') {
+      exp = K.preview.pondExporter(m.pond);
+      self.postMessage({ id: m.id, type: 'done', result: { fileName: exp.fileName, base: exp.base, bytes: exp.bytes, calls: exp.calls } });
+      return;
+    }
+    if (m.type === 'exportStep') {
+      if (!exp) throw new Error('No export running');
+      const bytes = exp.step(m.seconds);
+      const r = { bytes, progress: exp.progress, done: exp.done, header: exp.header, stats: exp.stats };
+      if (exp.done) exp = null;
+      self.postMessage({ id: m.id, type: 'done', result: r }, [bytes.buffer]);
+      return;
+    }
+    if (m.type === 'exportStop') { exp = null; self.postMessage({ id: m.id, type: 'done', result: null }); return; }
     if (m.type === 'pond') {
       const r = K.preview.pondWav(m.pond, { seconds: m.seconds }, p => self.postMessage({ id: m.id, type: 'progress', p }));
       self.postMessage({ id: m.id, type: 'done', result: r }, [r.bytes.buffer]);
@@ -5595,9 +5673,14 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
   const fileName = p => (p.name || 'pond').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.krill-pond.json';
 
   // a new lane for a creature
+  // the shared name of an export's WAV and pond file: krill_<seed>_<length>
+  function exportName(pond, seconds) {
+    const s = seconds > 0 ? seconds : pond.output.minutes * 60;
+    return 'krill_' + pond.seed + '_' + (s >= 60 && s % 60 === 0 ? (s / 60) + 'm' : Math.round(s) + 's');
+  }
   const slotFor = (creature, opts) => Object.assign({ creature, rerolls: 0, ignore: false, loudness: [LOUDNESS.def, 0] }, opts || {});
 
-  const api = { FORMAT, VERSION, SLOTS, COLORS, FIELDS, LOUDNESS, defaults, normalise, serialise, fileName, slotFor };
+  const api = { FORMAT, VERSION, SLOTS, COLORS, FIELDS, LOUDNESS, defaults, normalise, serialise, fileName, exportName, slotFor };
   if (inNode) module.exports = api;
   else K.pond = api;
 })(typeof self !== 'undefined' ? self : this);
@@ -5864,6 +5947,160 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
   const api = { noise, slotSeed, wanderSeed, period, wanderAt, place, slotPanAt };
   if (inNode) module.exports = api;
   else K.pan = api;
+})(typeof self !== 'undefined' ? self : this);
+
+// ---- src/wav.js
+/*
+ * krill · streaming WAV writer
+ *
+ * PCM, 16- or 24-bit, stereo. Writes through a sink, so the same code streams to disk in Node
+ * and builds a Blob in the browser:
+ *   sink.write(Uint8Array)              append bytes
+ *   sink.patch(offset, Uint8Array)      overwrite bytes already written (header sizes at the end)
+ *
+ * The header carries a LIST/INFO chunk (title, software, comment) and a 'krll' chunk with JSON
+ * describing exactly what made the file (seed, settings, creature or pond, engine commits).
+ * Both come before the data, so the header has a fixed size and only the sizes are patched.
+ * 16-bit output uses seeded TPDF dither, so it is repeatable too.
+ *
+ * Works in the browser (Krill.wav) and in Node (module.exports).
+ */
+(function (root) {
+  'use strict';
+
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const K = inNode ? null : (root.Krill = root.Krill || {});
+  const { Rng, hash, tag } = inNode ? require('./rng.js') : K.rng;
+
+  function utf8(str) {
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(str);
+    return Uint8Array.from(Buffer.from(str, 'utf8'));
+  }
+  function chunk(id, body) {               // id (4 chars) + size + body + pad to even
+    const pad = body.length & 1;
+    const out = new Uint8Array(8 + body.length + pad);
+    for (let i = 0; i < 4; i++) out[i] = id.charCodeAt(i);
+    new DataView(out.buffer).setUint32(4, body.length, true);
+    out.set(body, 8);
+    return out;
+  }
+  function zstr(s) { const b = utf8(s); const o = new Uint8Array(b.length + 1); o.set(b); return o; }
+  function concat(parts) {
+    let n = 0; for (const p of parts) n += p.length;
+    const out = new Uint8Array(n); let o = 0;
+    for (const p of parts) { out.set(p, o); o += p.length; }
+    return out;
+  }
+
+  class WavWriter {
+    // opts: { sampleRate, bits (16|24), channels (2), title, comment, meta (object → 'krll' JSON), seed }
+    constructor(sink, opts) {
+      this.sink = sink;
+      this.sr = opts.sampleRate;
+      this.bits = opts.bits === 16 ? 16 : 24;
+      this.ch = opts.channels || 2;
+      this.bps = this.bits / 8;
+      this.frames = 0;
+      this.dither = this.bits === 16 ? new Rng(hash(opts.seed >>> 0, tag('dither'))) : null;
+      const info = [utf8('INFO')];
+      if (opts.title) info.push(chunk('INAM', zstr(opts.title)));
+      info.push(chunk('ISFT', zstr(opts.software || 'krill')));
+      if (opts.comment) info.push(chunk('ICMT', zstr(opts.comment)));
+      this.extra = concat([chunk('LIST', concat(info)), opts.meta ? chunk('krll', utf8(JSON.stringify(opts.meta))) : new Uint8Array(0)]);
+      this.headerSize = 12 + 24 + this.extra.length + 8;
+      this.buf = new Uint8Array(0);
+      sink.write(this.header(0));
+    }
+    header(dataBytes) {
+      const h = new Uint8Array(this.headerSize), v = new DataView(h.buffer);
+      const w4 = (o, s) => { for (let i = 0; i < 4; i++) h[o + i] = s.charCodeAt(i); };
+      w4(0, 'RIFF'); v.setUint32(4, this.headerSize - 8 + dataBytes + (dataBytes & 1), true); w4(8, 'WAVE');
+      w4(12, 'fmt '); v.setUint32(16, 16, true);
+      v.setUint16(20, 1, true); v.setUint16(22, this.ch, true);
+      v.setUint32(24, this.sr, true); v.setUint32(28, this.sr * this.ch * this.bps, true);
+      v.setUint16(32, this.ch * this.bps, true); v.setUint16(34, this.bits, true);
+      h.set(this.extra, 36);
+      const d = 36 + this.extra.length;
+      w4(d, 'data'); v.setUint32(d + 4, dataBytes, true);
+      return h;
+    }
+    // interleave and convert n frames (floats in -1..1)
+    write(L, R, n) {
+      const need = n * this.ch * this.bps;
+      if (this.buf.length < need) this.buf = new Uint8Array(need);
+      const b = this.buf;
+      let o = 0;
+      if (this.bits === 24) {
+        for (let i = 0; i < n; i++) {
+          for (let c = 0; c < 2; c++) {
+            let x = (c ? R[i] : L[i]) * 8388607;
+            x = x > 8388607 ? 8388607 : x < -8388608 ? -8388608 : Math.round(x);
+            b[o++] = x & 255; b[o++] = (x >> 8) & 255; b[o++] = (x >> 16) & 255;
+          }
+        }
+      } else {
+        const d = this.dither;
+        for (let i = 0; i < n; i++) {
+          for (let c = 0; c < 2; c++) {
+            let x = (c ? R[i] : L[i]) * 32767 + (d.next() - d.next());
+            x = x > 32767 ? 32767 : x < -32768 ? -32768 : Math.round(x);
+            b[o++] = x & 255; b[o++] = (x >> 8) & 255;
+          }
+        }
+      }
+      this.sink.write(b.subarray(0, need));
+      this.frames += n;
+    }
+    finish() {
+      const bytes = this.frames * this.ch * this.bps;
+      if (bytes & 1) this.sink.write(new Uint8Array(1));
+      this.sink.patch(0, this.header(bytes));
+      return bytes + this.headerSize;
+    }
+  }
+
+  // read back the parts tests and tools care about
+  function parse(u8) {
+    const v = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    const id = o => String.fromCharCode(u8[o], u8[o + 1], u8[o + 2], u8[o + 3]);
+    if (id(0) !== 'RIFF' || id(8) !== 'WAVE') throw new Error('Not a WAV file');
+    const out = { riffSize: v.getUint32(4, true), chunks: {} };
+    let o = 12;
+    while (o + 8 <= u8.length) {
+      const cid = id(o), size = v.getUint32(o + 4, true);
+      out.chunks[cid] = { offset: o + 8, size };
+      if (cid === 'fmt ') {
+        out.format = v.getUint16(o + 8, true); out.channels = v.getUint16(o + 10, true);
+        out.sampleRate = v.getUint32(o + 12, true); out.bits = v.getUint16(o + 22, true);
+      }
+      if (cid === 'krll') out.meta = JSON.parse(new TextDecoder().decode(u8.subarray(o + 8, o + 8 + size)));
+      o += 8 + size + (size & 1);
+    }
+    if (out.chunks.data) out.frames = out.chunks.data.size / (out.channels * out.bits / 8);
+    return out;
+  }
+
+  // sink that collects into memory (browser previews, tests)
+  function memorySink() {
+    const parts = [];
+    let size = 0;
+    return {
+      write(b) { parts.push(b.slice()); size += b.length; },
+      patch(off, b) {
+        let o = 0;
+        for (const p of parts) {
+          if (off < o + p.length) { const k = off - o; p.set(b.subarray(0, Math.min(b.length, p.length - k)), k); return; }
+          o += p.length;
+        }
+      },
+      bytes() { return concat(parts); },
+      parts, get size() { return size; },
+    };
+  }
+
+  const api = { WavWriter, parse, memorySink };
+  if (inNode) module.exports = api;
+  else K.wav = api;
 })(typeof self !== 'undefined' ? self : this);
 
 // ---- pages/src/kit.js
@@ -6183,7 +6420,7 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
  *
  * One pond object is the single source of truth. The sketch is the conductor's score, which is
  * cheap, so it's recomputed (debounced) whenever something that shapes the score changes; audio
- * renders only on Render preview, in the worker. Efficiency: the sketch canvas redraws only when
+ * renders only on Preview and Export, in the worker. Efficiency: the sketch canvas redraws only when
  * the score or the window size changes; during playback only the playhead layer redraws, from a
  * rAF loop that stops with the audio.
  */
@@ -6193,6 +6430,8 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
   const { Rng } = K.rng;
   const STORE = 'krill.pond.v1', CREATURE_STORE = 'krill.creature.v1';
   const PREVIEW_MAX_MIN = 10;
+  const MEMORY_MAX_MIN = 30;           // longest export built in memory (browsers without the save dialog)
+  const STREAMS = typeof window.showSaveFilePicker === 'function';   // Chrome, Edge: write to disk as it renders
   const HEX = ['#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc'];
 
   const example = () => PD.normalise(window.KRILL_POND_EXAMPLE).pond;
@@ -6293,9 +6532,10 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
     const go = document.getElementById('g-out');
     knob(go, 'space.width', 'Width', { rescore: false });
     knob(go, 'output.level', 'Level', { fmt: v => (+v.toFixed(1)) + ' dB', rescore: false });
-    knob(go, 'output.fadeIn', 'Fade in', { fmt: v => Math.round(v) + ' s', rescore: false });
-    knob(go, 'output.fadeOut', 'Fade out', { fmt: v => Math.round(v) + ' s', rescore: false });
-    controls.push(kit.Seg(go, { label: 'Bits', options: [[16, '16'], [24, '24']], get: () => pond.output.bits, set: v => { pond.output.bits = v; changed(false); } }));
+    const ex = document.getElementById('exOut');            // the rest of Output lives in the Export sheet
+    knob(ex, 'output.fadeIn', 'Fade in', { fmt: v => Math.round(v) + ' s', rescore: false });
+    knob(ex, 'output.fadeOut', 'Fade out', { fmt: v => Math.round(v) + ' s', rescore: false });
+    controls.push(kit.Seg(ex, { label: 'Bits', options: [[16, '16'], [24, '24']], get: () => pond.output.bits, set: v => { pond.output.bits = v; changed(false); showExport(); } }));
   }
   const seedEl = document.getElementById('seed'), minEl = document.getElementById('minutes');
   seedEl.addEventListener('change', () => { const v = parseInt(seedEl.value, 10); if (v > 0) { pond.seed = v; changed(); } showFields(); });
@@ -6304,9 +6544,8 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
   function showFields() {
     seedEl.value = pond.seed; minEl.value = +pond.output.minutes.toFixed(2);
     const long = pond.output.minutes > PREVIEW_MAX_MIN;
-    document.getElementById('render').textContent = long ? 'Render first ' + PREVIEW_MAX_MIN + ' min' : 'Render preview';
-    document.getElementById('longNote').hidden = !long;
-    document.getElementById('cmd').textContent = 'node tools/render.js ' + PD.fileName(pond);
+    document.getElementById('render').textContent = long ? 'Preview first ' + PREVIEW_MAX_MIN + ' min' : 'Preview';
+    showExport();
   }
   function refreshAll() { showName(); buildSlots(); for (const c of controls) c.show(); showFields(); }
 
@@ -6423,7 +6662,7 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
   const renderBtn = document.getElementById('render'), prog = document.getElementById('prog'), progBar = prog.firstChild;
   let wavUrl = null, wavName = '';
   renderBtn.addEventListener('click', async () => {
-    if (renderBtn.disabled) return;
+    if (renderBtn.disabled || exporting) return;
     if (!pond.slots.some(Boolean)) { setStatus('Put a creature in a slot first', true); return; }
     renderBtn.disabled = true; prog.style.display = 'block'; progBar.style.width = '0';
     const seconds = Math.min(pond.output.minutes, PREVIEW_MAX_MIN) * 60;
@@ -6451,6 +6690,91 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
     if (t >= 0 && t <= (audio.duration || 0)) { audio.currentTime = t; drawTop(t); }
   });
 
+  // ---------- export ----------
+  // The sheet edits the pond's own output settings (length, fades, bits), so the pond file saved
+  // with the WAV re-renders exactly that piece. Chrome and Edge stream to disk through the save
+  // dialog; other browsers build the WAV in memory, up to MEMORY_MAX_MIN.
+  const sheet = document.getElementById('exportSheet'), exMin = document.getElementById('exMin');
+  const exNote = document.getElementById('exNote'), exGo = document.getElementById('exGo'), exCancel = document.getElementById('exCancel');
+  const exProg = document.getElementById('exProg'), exBar = exProg.firstChild, exPond = document.getElementById('exPond');
+  const LENGTHS = [1, 5, 10, 20, 30, 60];
+  const lenSeg = kit.Seg(document.getElementById('exLenSeg'), { options: LENGTHS.map(m => [m, String(m)]), get: () => pond.output.minutes,
+    set: v => { pond.output.minutes = v; changed(); showFields(); } });
+  exMin.addEventListener('change', () => { const v = parseFloat(exMin.value); if (v > 0) { pond.output.minutes = Math.min(600, Math.max(0.1, v)); changed(); } showFields(); });
+  let exporting = null;                // { stop } while an export runs
+  const mb = b => b >= 1e9 ? (b / 1e9).toFixed(2) + ' GB' : Math.round(b / 1e6) + ' MB';
+  function showExport() {
+    if (!exMin) return;
+    lenSeg.show();
+    if (document.activeElement !== exMin) exMin.value = +pond.output.minutes.toFixed(2);
+    const bytes = pond.output.minutes * 60 * 48000 * 2 * pond.output.bits / 8, name = PD.exportName(pond);
+    const tooLong = !STREAMS && pond.output.minutes > MEMORY_MAX_MIN;
+    exNote.textContent = '';
+    exNote.append(name + '.wav, about ' + mb(bytes) + '. ');
+    if (STREAMS) exNote.append('It is written to disk as it renders, so any length works.');
+    else if (!tooLong) exNote.append('This browser builds the WAV in memory, up to ' + MEMORY_MAX_MIN + ' minutes (Chrome and Edge can save longer pieces).');
+    else {
+      exNote.append('That is longer than this browser can hold in memory (' + MEMORY_MAX_MIN + ' min). Use Chrome or Edge, or save the pond and run ');
+      const c = el('span'); c.id = 'cmd'; c.textContent = 'node tools/render.js ' + name + '.krill-pond.json'; exNote.appendChild(c);
+    }
+    exGo.disabled = tooLong || !!exporting;
+  }
+  function openSheet() { if (!pond.slots.some(Boolean)) { setStatus('Put a creature in a slot first', true); return; } for (const c of controls) c.show(); showExport(); sheet.hidden = false; exGo.focus(); }
+  function closeSheet() { if (exporting) exporting.stop(); else sheet.hidden = true; }
+  document.getElementById('export').addEventListener('click', openSheet);
+  exCancel.addEventListener('click', closeSheet);
+  sheet.addEventListener('click', e => { if (e.target === sheet && !exporting) closeSheet(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+  function savePondFile(p, base) {
+    const u = URL.createObjectURL(new Blob([PD.serialise(p)], { type: 'application/json' }));
+    download(u, base + '.krill-pond.json'); setTimeout(() => URL.revokeObjectURL(u), 5000);
+  }
+  exGo.addEventListener('click', async () => {
+    if (exporting || exGo.disabled) return;
+    const p = PD.normalise(JSON.parse(JSON.stringify(pond))).pond, name = PD.exportName(p);
+    let file = null;
+    if (STREAMS) {
+      try {
+        const h = await window.showSaveFilePicker({ suggestedName: name + '.wav', types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }] });
+        file = await h.createWritable();
+      } catch (e) { if (e && e.name === 'AbortError') return; setStatus('Could not open the file: ' + e.message, true); return; }
+    }
+    let stopped = false;
+    exporting = { stop: () => { stopped = true; } };
+    exGo.disabled = true; renderBtn.disabled = true; exCancel.textContent = 'Stop'; exProg.style.display = 'block'; exBar.style.width = '0';
+    const t = performance.now(), parts = [];
+    try {
+      const info = await job({ type: 'exportStart', pond: p });
+      let r;
+      do {
+        r = await job({ type: 'exportStep', seconds: 10 });
+        if (stopped) break;
+        if (file) await file.write(r.bytes); else parts.push(r.bytes);
+        exBar.style.width = (r.progress * 100) + '%';
+        setStatus('Exporting ' + Math.round(r.progress * 100) + '%');
+      } while (!r.done);
+      if (stopped) {
+        await job({ type: 'exportStop' });
+        if (file) await file.abort().catch(() => {});
+        setStatus('Export stopped');
+      } else {
+        if (file) { await file.write({ type: 'write', position: 0, data: r.header }); await file.close(); }
+        else {
+          parts[0].set(r.header, 0);
+          const u = URL.createObjectURL(new Blob(parts, { type: 'audio/wav' }));
+          download(u, info.fileName); setTimeout(() => URL.revokeObjectURL(u), 60000);
+        }
+        if (exPond.checked) savePondFile(p, info.base);
+        setStatus('Exported ' + info.fileName + (exPond.checked ? ' and its pond file' : '') + ' in ' + ((performance.now() - t) / 1000).toFixed(1) + ' s');
+        sheet.hidden = true;
+      }
+    } catch (e) {
+      if (file) await file.abort().catch(() => {});
+      setStatus('Could not export: ' + e.message, true);
+    }
+    exporting = null; exCancel.textContent = 'Cancel'; exProg.style.display = 'none'; renderBtn.disabled = false; showExport();
+  });
+
   // ---------- files ----------
   function download(url, name) { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
   document.getElementById('save').addEventListener('click', () => {
@@ -6460,7 +6784,24 @@ window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pon
   });
   document.getElementById('load').addEventListener('click', () => { fileTarget = null; fileIn.click(); });
   fileIn.addEventListener('change', () => { const f = fileIn.files[0]; fileIn.value = ''; if (f) readFile(f, fileTarget); });
+  // a krill WAV carries the pond it was made from in its krll chunk (before the audio)
+  function readWav(f) {
+    f.slice(0, 4 << 20).arrayBuffer().then(buf => {
+      let info; try { info = K.wav.parse(new Uint8Array(buf)); } catch (e) { setStatus(f.name + ' is not a WAV file', true); return; }
+      if (!info.meta || !info.meta.pond) { setStatus(f.name + ' was not made by krill, so it has no pond in it', true); return; }
+      const p = info.meta.pond;
+      if (info.meta.seconds) p.output = Object.assign({}, p.output, { minutes: info.meta.seconds / 60 });
+      loadPond(p); setStatus('Opened the pond from ' + f.name);
+    });
+  }
   function readFile(f, slot) {
+    f.slice(0, 12).arrayBuffer().then(b => {       // a WAV by its contents, whatever its name
+      const u = new Uint8Array(b), id = o => String.fromCharCode(u[o], u[o + 1], u[o + 2], u[o + 3]);
+      if (u.length === 12 && id(0) === 'RIFF' && id(8) === 'WAVE') { if (slot == null) readWav(f); else setStatus('A WAV opens as a pond: use Load…', true); }
+      else readJson(f, slot);
+    });
+  }
+  function readJson(f, slot) {
     f.text().then(txt => {
       let o; try { o = JSON.parse(txt); } catch (e) { setStatus(f.name + ' is not JSON', true); return; }
       try {

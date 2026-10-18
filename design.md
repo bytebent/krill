@@ -204,6 +204,21 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
   Level would mean something different per species. `tools/calibrate.js` measures it.
 - **Fade in / fade out** lengths for the start and end of the piece. [Proposed]
 
+### 5.7 Export
+- **Export…** on the pond page opens a sheet: **length** (1, 5, 10, 20, 30, 60 min or any
+  custom length), **bits**, **fade in / out**, and **Also save the pond file** (on by default).
+  These are the pond's own output settings, so the pond file saved with the WAV re-renders that
+  exact piece. [Decided]
+- Same seed, longer length: the shorter render is exactly the start of the longer one (only the
+  fade-out moves), so a short export is a true preview of a long one. Tested. [Decided]
+- The WAV and the pond file share a name: `krill_<seed>_<length>.wav` and
+  `krill_<seed>_<length>.krill-pond.json`. The WAV also carries the whole pond in its `krll`
+  chunk, so dropping a krill WAV on the pond page (or Load…) opens the pond it was made from. [Decided]
+- **Chrome / Edge:** the save dialog streams the render straight to disk, so any length works
+  from the page. **Safari / Firefox:** the WAV is built in memory and downloaded, up to 30 minutes;
+  longer pieces show the Node command. **Preview** (play in the page, up to 10 minutes) stays as
+  it is. [Decided]
+
 ## 6. Seeds and repeatability
 [Decided: seeds so pieces can be remade]
 
@@ -449,6 +464,23 @@ mouth-tube purple.
 The score stores pitch as **fractional MIDI notes** (60.37 = C4 plus 37 cents). The audio stage
 splits that into the engine's whole note plus Detune in cents. Contours are a start and an end
 pitch per unit; the audio stage moves between them.
+
+### 9.3 Visualizer page
+[Decided: its own page, `pages/visualizer.html`]
+
+- A circle. Each creature is a small **oscilloscope of its own voice** in its slot colour.
+- **Position:** left to right is the creature's pan (the same as what you hear, `src/pan.js`).
+  Up and down has no sound behind it, so it's seeded per slot and drifts slowly with the eras.
+- **Size** follows each call's loudness. Loudness never changes the position.
+- **Fades with volume:** a scope's brightness follows its own level, so a silent creature isn't
+  shown at all.
+- **Answers:** a solid white line from the caller to the answerer, with a ball passing along it
+  as the answer starts. **Copies:** a dotted line.
+- **Plays live:** load a pond file (or open the pond page's pond) and press play; the voices
+  render in real time in the page, so it can play for as long as you like.
+- **Plays WAVs too:** drop a krill WAV and it plays that file, reading the pond from its `krll`
+  chunk and running the voices silently alongside for the scopes and positions. Seeking re-runs
+  the voices from the nearest point the score allows.
 
 ## 10. Later
 - **More sources and bodies**: experimental synths as sources, other resonating bodies, other

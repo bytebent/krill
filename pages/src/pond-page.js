@@ -3,7 +3,7 @@
  *
  * One pond object is the single source of truth. The sketch is the conductor's score, which is
  * cheap, so it's recomputed (debounced) whenever something that shapes the score changes; audio
- * renders only on Render preview, in the worker. Efficiency: the sketch canvas redraws only when
+ * renders only on Preview and Export, in the worker. Efficiency: the sketch canvas redraws only when
  * the score or the window size changes; during playback only the playhead layer redraws, from a
  * rAF loop that stops with the audio.
  */
@@ -13,6 +13,8 @@
   const { Rng } = K.rng;
   const STORE = 'krill.pond.v1', CREATURE_STORE = 'krill.creature.v1';
   const PREVIEW_MAX_MIN = 10;
+  const MEMORY_MAX_MIN = 30;           // longest export built in memory (browsers without the save dialog)
+  const STREAMS = typeof window.showSaveFilePicker === 'function';   // Chrome, Edge: write to disk as it renders
   const HEX = ['#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc'];
 
   const example = () => PD.normalise(window.KRILL_POND_EXAMPLE).pond;
@@ -113,9 +115,10 @@
     const go = document.getElementById('g-out');
     knob(go, 'space.width', 'Width', { rescore: false });
     knob(go, 'output.level', 'Level', { fmt: v => (+v.toFixed(1)) + ' dB', rescore: false });
-    knob(go, 'output.fadeIn', 'Fade in', { fmt: v => Math.round(v) + ' s', rescore: false });
-    knob(go, 'output.fadeOut', 'Fade out', { fmt: v => Math.round(v) + ' s', rescore: false });
-    controls.push(kit.Seg(go, { label: 'Bits', options: [[16, '16'], [24, '24']], get: () => pond.output.bits, set: v => { pond.output.bits = v; changed(false); } }));
+    const ex = document.getElementById('exOut');            // the rest of Output lives in the Export sheet
+    knob(ex, 'output.fadeIn', 'Fade in', { fmt: v => Math.round(v) + ' s', rescore: false });
+    knob(ex, 'output.fadeOut', 'Fade out', { fmt: v => Math.round(v) + ' s', rescore: false });
+    controls.push(kit.Seg(ex, { label: 'Bits', options: [[16, '16'], [24, '24']], get: () => pond.output.bits, set: v => { pond.output.bits = v; changed(false); showExport(); } }));
   }
   const seedEl = document.getElementById('seed'), minEl = document.getElementById('minutes');
   seedEl.addEventListener('change', () => { const v = parseInt(seedEl.value, 10); if (v > 0) { pond.seed = v; changed(); } showFields(); });
@@ -124,9 +127,8 @@
   function showFields() {
     seedEl.value = pond.seed; minEl.value = +pond.output.minutes.toFixed(2);
     const long = pond.output.minutes > PREVIEW_MAX_MIN;
-    document.getElementById('render').textContent = long ? 'Render first ' + PREVIEW_MAX_MIN + ' min' : 'Render preview';
-    document.getElementById('longNote').hidden = !long;
-    document.getElementById('cmd').textContent = 'node tools/render.js ' + PD.fileName(pond);
+    document.getElementById('render').textContent = long ? 'Preview first ' + PREVIEW_MAX_MIN + ' min' : 'Preview';
+    showExport();
   }
   function refreshAll() { showName(); buildSlots(); for (const c of controls) c.show(); showFields(); }
 
@@ -243,7 +245,7 @@
   const renderBtn = document.getElementById('render'), prog = document.getElementById('prog'), progBar = prog.firstChild;
   let wavUrl = null, wavName = '';
   renderBtn.addEventListener('click', async () => {
-    if (renderBtn.disabled) return;
+    if (renderBtn.disabled || exporting) return;
     if (!pond.slots.some(Boolean)) { setStatus('Put a creature in a slot first', true); return; }
     renderBtn.disabled = true; prog.style.display = 'block'; progBar.style.width = '0';
     const seconds = Math.min(pond.output.minutes, PREVIEW_MAX_MIN) * 60;
@@ -271,6 +273,91 @@
     if (t >= 0 && t <= (audio.duration || 0)) { audio.currentTime = t; drawTop(t); }
   });
 
+  // ---------- export ----------
+  // The sheet edits the pond's own output settings (length, fades, bits), so the pond file saved
+  // with the WAV re-renders exactly that piece. Chrome and Edge stream to disk through the save
+  // dialog; other browsers build the WAV in memory, up to MEMORY_MAX_MIN.
+  const sheet = document.getElementById('exportSheet'), exMin = document.getElementById('exMin');
+  const exNote = document.getElementById('exNote'), exGo = document.getElementById('exGo'), exCancel = document.getElementById('exCancel');
+  const exProg = document.getElementById('exProg'), exBar = exProg.firstChild, exPond = document.getElementById('exPond');
+  const LENGTHS = [1, 5, 10, 20, 30, 60];
+  const lenSeg = kit.Seg(document.getElementById('exLenSeg'), { options: LENGTHS.map(m => [m, String(m)]), get: () => pond.output.minutes,
+    set: v => { pond.output.minutes = v; changed(); showFields(); } });
+  exMin.addEventListener('change', () => { const v = parseFloat(exMin.value); if (v > 0) { pond.output.minutes = Math.min(600, Math.max(0.1, v)); changed(); } showFields(); });
+  let exporting = null;                // { stop } while an export runs
+  const mb = b => b >= 1e9 ? (b / 1e9).toFixed(2) + ' GB' : Math.round(b / 1e6) + ' MB';
+  function showExport() {
+    if (!exMin) return;
+    lenSeg.show();
+    if (document.activeElement !== exMin) exMin.value = +pond.output.minutes.toFixed(2);
+    const bytes = pond.output.minutes * 60 * 48000 * 2 * pond.output.bits / 8, name = PD.exportName(pond);
+    const tooLong = !STREAMS && pond.output.minutes > MEMORY_MAX_MIN;
+    exNote.textContent = '';
+    exNote.append(name + '.wav, about ' + mb(bytes) + '. ');
+    if (STREAMS) exNote.append('It is written to disk as it renders, so any length works.');
+    else if (!tooLong) exNote.append('This browser builds the WAV in memory, up to ' + MEMORY_MAX_MIN + ' minutes (Chrome and Edge can save longer pieces).');
+    else {
+      exNote.append('That is longer than this browser can hold in memory (' + MEMORY_MAX_MIN + ' min). Use Chrome or Edge, or save the pond and run ');
+      const c = el('span'); c.id = 'cmd'; c.textContent = 'node tools/render.js ' + name + '.krill-pond.json'; exNote.appendChild(c);
+    }
+    exGo.disabled = tooLong || !!exporting;
+  }
+  function openSheet() { if (!pond.slots.some(Boolean)) { setStatus('Put a creature in a slot first', true); return; } for (const c of controls) c.show(); showExport(); sheet.hidden = false; exGo.focus(); }
+  function closeSheet() { if (exporting) exporting.stop(); else sheet.hidden = true; }
+  document.getElementById('export').addEventListener('click', openSheet);
+  exCancel.addEventListener('click', closeSheet);
+  sheet.addEventListener('click', e => { if (e.target === sheet && !exporting) closeSheet(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+  function savePondFile(p, base) {
+    const u = URL.createObjectURL(new Blob([PD.serialise(p)], { type: 'application/json' }));
+    download(u, base + '.krill-pond.json'); setTimeout(() => URL.revokeObjectURL(u), 5000);
+  }
+  exGo.addEventListener('click', async () => {
+    if (exporting || exGo.disabled) return;
+    const p = PD.normalise(JSON.parse(JSON.stringify(pond))).pond, name = PD.exportName(p);
+    let file = null;
+    if (STREAMS) {
+      try {
+        const h = await window.showSaveFilePicker({ suggestedName: name + '.wav', types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }] });
+        file = await h.createWritable();
+      } catch (e) { if (e && e.name === 'AbortError') return; setStatus('Could not open the file: ' + e.message, true); return; }
+    }
+    let stopped = false;
+    exporting = { stop: () => { stopped = true; } };
+    exGo.disabled = true; renderBtn.disabled = true; exCancel.textContent = 'Stop'; exProg.style.display = 'block'; exBar.style.width = '0';
+    const t = performance.now(), parts = [];
+    try {
+      const info = await job({ type: 'exportStart', pond: p });
+      let r;
+      do {
+        r = await job({ type: 'exportStep', seconds: 10 });
+        if (stopped) break;
+        if (file) await file.write(r.bytes); else parts.push(r.bytes);
+        exBar.style.width = (r.progress * 100) + '%';
+        setStatus('Exporting ' + Math.round(r.progress * 100) + '%');
+      } while (!r.done);
+      if (stopped) {
+        await job({ type: 'exportStop' });
+        if (file) await file.abort().catch(() => {});
+        setStatus('Export stopped');
+      } else {
+        if (file) { await file.write({ type: 'write', position: 0, data: r.header }); await file.close(); }
+        else {
+          parts[0].set(r.header, 0);
+          const u = URL.createObjectURL(new Blob(parts, { type: 'audio/wav' }));
+          download(u, info.fileName); setTimeout(() => URL.revokeObjectURL(u), 60000);
+        }
+        if (exPond.checked) savePondFile(p, info.base);
+        setStatus('Exported ' + info.fileName + (exPond.checked ? ' and its pond file' : '') + ' in ' + ((performance.now() - t) / 1000).toFixed(1) + ' s');
+        sheet.hidden = true;
+      }
+    } catch (e) {
+      if (file) await file.abort().catch(() => {});
+      setStatus('Could not export: ' + e.message, true);
+    }
+    exporting = null; exCancel.textContent = 'Cancel'; exProg.style.display = 'none'; renderBtn.disabled = false; showExport();
+  });
+
   // ---------- files ----------
   function download(url, name) { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
   document.getElementById('save').addEventListener('click', () => {
@@ -280,7 +367,24 @@
   });
   document.getElementById('load').addEventListener('click', () => { fileTarget = null; fileIn.click(); });
   fileIn.addEventListener('change', () => { const f = fileIn.files[0]; fileIn.value = ''; if (f) readFile(f, fileTarget); });
+  // a krill WAV carries the pond it was made from in its krll chunk (before the audio)
+  function readWav(f) {
+    f.slice(0, 4 << 20).arrayBuffer().then(buf => {
+      let info; try { info = K.wav.parse(new Uint8Array(buf)); } catch (e) { setStatus(f.name + ' is not a WAV file', true); return; }
+      if (!info.meta || !info.meta.pond) { setStatus(f.name + ' was not made by krill, so it has no pond in it', true); return; }
+      const p = info.meta.pond;
+      if (info.meta.seconds) p.output = Object.assign({}, p.output, { minutes: info.meta.seconds / 60 });
+      loadPond(p); setStatus('Opened the pond from ' + f.name);
+    });
+  }
   function readFile(f, slot) {
+    f.slice(0, 12).arrayBuffer().then(b => {       // a WAV by its contents, whatever its name
+      const u = new Uint8Array(b), id = o => String.fromCharCode(u[o], u[o + 1], u[o + 2], u[o + 3]);
+      if (u.length === 12 && id(0) === 'RIFF' && id(8) === 'WAVE') { if (slot == null) readWav(f); else setStatus('A WAV opens as a pond: use Load…', true); }
+      else readJson(f, slot);
+    });
+  }
+  function readJson(f, slot) {
     f.text().then(txt => {
       let o; try { o = JSON.parse(txt); } catch (e) { setStatus(f.name + ' is not JSON', true); return; }
       try {

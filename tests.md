@@ -7,7 +7,7 @@ Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 Moanback only when checking that a long, monotonous call works, or when a test needs a
 Throat + Mouth creature.
 
-**Now: 84 Node tests passing** (about 30 s, most of it the audio tests), plus **40 browser checks**
+**Now: 86 Node tests passing** (about 30 s, most of it the audio tests), plus **47 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -173,3 +173,23 @@ short buzzes. Rests are exact digital silence.
   taller, has a dashed centre line and draws each call as a line across its duration. Example
   pond: calls span -0.80 to +0.80 (Width 80%) and lanes keep their left-to-right order. The
   voice's output is unchanged (same SHA-256). ✓
+
+## Batch 09 · export
+
+![The Export sheet](docs/tests/09-export-sheet.png)
+
+- Same seed, longer length: the first 20 s of a 30-second and a 3-minute render are identical,
+  sample for sample (fade-out off). A 5- and 20-minute score agree on all 75 calls in the first
+  5 minutes. So a short export is a true preview of a long one. ✓
+- The stepped exporter gives the same bytes as the in-memory WAV whatever the step size, and
+  knows the file size before it starts. Moving to it left renders bit-identical. ✓
+- Browser, streaming path (the save dialog stood in for by a fake file): the sheet has six
+  length presets, a custom length, fades and bits; a preset sets the pond's length; a 30-second
+  export writes a complete WAV (header written last, sizes match) and saves
+  `krill_4242_30s.krill-pond.json` next to it with the export's length. ✓
+- Browser, in-memory path (save dialog removed, as in Safari): past 30 minutes Export is
+  disabled and the note shows the Node command; a 30-second export downloads a complete WAV;
+  loading that WAV opens the pond it was made from (seed, length, all four slots). ✓
+- **Fixed while testing:** a krill WAV is recognised by its contents, not its name, since
+  downloads can lose the `.wav` extension.
+- Not tested here: Safari itself (WebKit can't be installed in this sandbox).

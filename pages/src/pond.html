@@ -28,6 +28,19 @@
 #cmd{font:11px var(--mono);color:var(--ink-soft);user-select:all}
 .lenbox{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700}
 .lenbox input{width:64px}
+.sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(40,40,48,.35);display:flex;align-items:flex-start;justify-content:center;padding-top:90px}
+.sheet-bg[hidden]{display:none}
+.sheet{width:460px;border:1px solid #7d7d86;border-radius:9px;overflow:clip;background:var(--platinum,#e4e4e8);box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.sheet .titlebar h2{margin:0;font-size:13px;font-weight:700;white-space:nowrap}
+.sheet .in{padding:14px 18px 6px;display:flex;flex-direction:column;gap:14px}
+.sheet .line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;font-weight:700}
+.sheet .line input.field{width:64px}
+.sheet .knobs{justify-content:flex-start;gap:6px 18px;align-items:center}
+.sheet label.chk{display:flex;align-items:center;gap:8px;font-size:12px}
+.sheet .note{margin:0}
+.sheet .foot{display:flex;align-items:center;gap:10px;padding:10px 18px 14px}
+.sheet .foot .progress{flex:1;width:auto}
+.sheet .foot .grow{flex:1}
 </style>
 </head>
 <body>
@@ -58,9 +71,9 @@
       <fieldset><legend><span class="dot"></span>Space · Output</legend><div class="knobs" id="g-out"></div></fieldset>
     </div>
 
-    <p class="note" id="longNote" hidden style="margin-top:12px">Previews render up to 10 minutes here. For the full length, save the pond and run: <span id="cmd"></span></p>
     <div class="actions">
-      <button class="gel" id="render" type="button">Render preview</button>
+      <button class="gel" id="export" type="button">Export&#x2026;</button>
+      <button class="gel grey" id="render" type="button" title="Render up to the first 10 minutes to listen to here">Preview</button>
       <span class="progress" id="prog"><i></i></span>
       <span class="sep"></span>
       <span class="lenbox">Seed <input class="field" id="seed" type="number" min="1" step="1" aria-label="Seed"><button class="sq" id="dice" type="button" aria-label="Random seed" title="Random seed">&#x2684;</button></span>
@@ -74,7 +87,23 @@
     </div>
   </div>
 </div>
-<input type="file" id="file" accept=".json,application/json" hidden>
+<div class="sheet-bg" id="exportSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="exTitle">
+    <div class="titlebar"><span class="closebox" aria-hidden="true"></span><span class="lines"></span><h2 id="exTitle">Export</h2><span class="lines"></span></div>
+    <div class="in">
+      <div class="line"><span>Length</span><span id="exLenSeg"></span><input class="field" id="exMin" type="number" min="0.1" max="600" step="0.5" aria-label="Length in minutes"> min</div>
+      <div class="knobs" id="exOut"></div>
+      <label class="chk"><input type="checkbox" id="exPond" checked> Also save the pond file, to render this piece again</label>
+      <p class="note" id="exNote"></p>
+    </div>
+    <div class="foot">
+      <span class="progress" id="exProg"><i></i></span><span class="grow" id="exGrow"></span>
+      <button class="gel grey small" id="exCancel" type="button">Cancel</button>
+      <button class="gel" id="exGo" type="button">Export</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="file" accept=".json,application/json,.wav,audio/wav,audio/x-wav" hidden>
 <script type="text/plain" id="worker-src">/*WORKER*/</script>
 <script>/*MAIN*/</script>
 </body>

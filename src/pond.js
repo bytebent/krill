@@ -118,9 +118,14 @@
   const fileName = p => (p.name || 'pond').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.krill-pond.json';
 
   // a new lane for a creature
+  // the shared name of an export's WAV and pond file: krill_<seed>_<length>
+  function exportName(pond, seconds) {
+    const s = seconds > 0 ? seconds : pond.output.minutes * 60;
+    return 'krill_' + pond.seed + '_' + (s >= 60 && s % 60 === 0 ? (s / 60) + 'm' : Math.round(s) + 's');
+  }
   const slotFor = (creature, opts) => Object.assign({ creature, rerolls: 0, ignore: false, loudness: [LOUDNESS.def, 0] }, opts || {});
 
-  const api = { FORMAT, VERSION, SLOTS, COLORS, FIELDS, LOUDNESS, defaults, normalise, serialise, fileName, slotFor };
+  const api = { FORMAT, VERSION, SLOTS, COLORS, FIELDS, LOUDNESS, defaults, normalise, serialise, fileName, exportName, slotFor };
   if (inNode) module.exports = api;
   else K.pond = api;
 })(typeof self !== 'undefined' ? self : this);

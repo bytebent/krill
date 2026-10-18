@@ -168,8 +168,7 @@
     const fadeIn = Math.min(pond.output.fadeIn, seconds * 0.25), fadeOut = Math.min(pond.output.fadeOut, seconds * 0.25);
     const render = new Render(voices, { sampleRate: sr, frames: Math.round(seconds * sr), level: pond.output.level, fadeIn, fadeOut });
     const meta = { krill: VER.KRILL, engines: VER.ENGINES, kind: 'pond', seed: pond.seed, seconds, sampleRate: sr, pitch: score.pitch, pond };
-    const len = seconds >= 60 && seconds % 60 === 0 ? (seconds / 60) + 'm' : Math.round(seconds) + 's';
-    return { render, score, meta, pond, fileName: 'krill_' + pond.seed + '_' + len + '.wav' };
+    return { render, score, meta, pond, fileName: PD.exportName(pond, seconds) + '.wav' };
   }
 
   // ---------- a creature on its own ----------
