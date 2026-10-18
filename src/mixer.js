@@ -161,7 +161,7 @@
       const calls = score.calls.filter(c => c.slot === i);
       voices.push(new Voice(slot, calls, {
         sampleRate: sr, seed: hash(pond.seed, tag('slot'), i, pond.slots[i].rerolls || 0),
-        pan: slot.pan, wander: slot.wander, level: slot.level + (pond.slots[i].level || 0), width: pond.space.width,
+        pan: slot.pan, wander: slot.wander, level: slot.level, width: pond.space.width,
       }));
     });
     const fadeIn = Math.min(pond.output.fadeIn, seconds * 0.25), fadeOut = Math.min(pond.output.fadeOut, seconds * 0.25);

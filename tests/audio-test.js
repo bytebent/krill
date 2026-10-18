@@ -188,16 +188,16 @@ test('WAV: header, sizes, metadata, 16-bit dither is repeatable', () => {
 });
 
 test('a solo render carries what made it', () => {
-  const job = M.soloRender(example('moanback'), { seed: 21, seconds: 2, pitch: { mode: 'free' } });
-  assert.equal(job.fileName, 'krill_moanback_21_2s.wav');
+  const job = M.soloRender(example('siltclicker'), { seed: 21, seconds: 2, pitch: { mode: 'free' } });
+  assert.equal(job.fileName, 'krill_siltclicker_21_2s.wav');
   assert.equal(job.meta.seed, 21);
-  assert.equal(job.meta.creature.name, 'Moanback');
+  assert.equal(job.meta.creature.name, 'Siltclicker');
   assert.deepEqual(job.meta.engines, VER.ENGINES);
   assert.equal(M.fileName('X', 4, 1200), 'krill_x_4_20m.wav');
 });
 
 test('every example keeps at least 6 dB of headroom inside its engine', () => {
-  for (const n of ['glassfin', 'moanback', 'ticker', 'wicklace']) {
+  for (const n of ['glassfin', 'moanback', 'siltclicker', 'ticker', 'wicklace']) {
     const job = M.soloRender(example(n), { seed: 2, seconds: 90, pitch: { mode: 'key', root: 'D', scale: 'minor' } });
     const L = new Float32Array(4800), Rr = new Float32Array(4800);
     while (!job.render.done) job.render.read(L, Rr, 4800);

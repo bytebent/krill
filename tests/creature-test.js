@@ -145,7 +145,7 @@ test('names are deterministic per stream', () => {
 test('example creatures load without warnings', () => {
   const dir = path.join(__dirname, '..', 'examples', 'creatures');
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.krill-creature.json'));
-  assert.ok(files.length >= 4);
+  assert.ok(files.length >= 5);
   const species = new Set();
   for (const f of files) {
     const txt = fs.readFileSync(path.join(dir, f), 'utf8');

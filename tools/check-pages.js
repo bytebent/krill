@@ -44,7 +44,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
 
   // examples: every one loads, Throat + tube shows a tube, bare shows pitch
   const exNames = await page.evaluate(() => (window.KRILL_EXAMPLES || []).map(e => e.name));
-  ok('examples are built in', exNames.length === 4, exNames.join(', '));
+  ok('examples are built in', exNames.length === 5, exNames.join(', '));
   for (const n of exNames) {
     await page.click('#examples');
     await page.click('#exMenu .it:has-text("' + n + '")');
@@ -55,7 +55,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
     const view = await page.evaluate(() => document.getElementById('tubeLbl').textContent);
     const body = await page.evaluate(() => window.krillPage.creature.body);
     ok('example ' + n + ' calls', view === (body === 'tube' ? 'TUBE' : 'PITCH'), view);
-    if (SHOTS && n === 'Moanback') await page.locator('.screen').screenshot({ path: path.join(SHOTS, '05-lcd-moanback.png') });
+    if (SHOTS && n === 'Siltclicker') await page.locator('.screen').screenshot({ path: path.join(SHOTS, '05-lcd-siltclicker.png') });
     if (SHOTS && n === 'Ticker') await page.locator('.bodywrap').screenshot({ path: path.join(SHOTS, '05-mouth-ticker.png') });
     await page.click('#status');      // closes the menu if it stayed open
   }
@@ -75,7 +75,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   ok('double-click locks a range', lockedRow);
 
   // vowel pad: drawing a region writes both tongue ranges
-  await page.evaluate(() => window.krillPage.load(window.KRILL_EXAMPLES.find(e => e.name === 'Moanback')));
+  await page.evaluate(() => window.krillPage.load(window.KRILL_EXAMPLES.find(e => e.name === 'Siltclicker')));
   await page.locator('#pad').evaluate(e => e.scrollIntoView({ block: 'center' }));
   const pb = await page.locator('#pad').boundingBox();
   await page.mouse.move(pb.x + pb.width * 0.3, pb.y + pb.height * 0.3);

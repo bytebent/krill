@@ -3,7 +3,11 @@
 Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 `node tests/run.js`.
 
-**Now: 81 Node tests passing** (about 19 s, most of it the audio tests), plus **21 browser checks**
+**Test creatures:** use **Siltclicker** (Dolphin + Mouth) as the default test creature. Use
+Moanback only when checking that a long, monotonous call works, or when a test needs a
+Throat + Mouth creature.
+
+**Now: 81 Node tests passing** (about 25 s, most of it the audio tests), plus **22 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -89,7 +93,7 @@ short buzzes. Rests are exact digital silence.
 - Node: the built page is current, previews repeat for a seed, the Signature button plays the
   signature, a 1.5 kHz tone lands in its spectrogram bin, the solo WAV is complete. ✓
 
-![LCD with Moanback: spectrogram and tube](docs/tests/05-lcd-moanback.png)
+![LCD with Siltclicker: spectrogram and tube](docs/tests/05-lcd-siltclicker.png)
 
 ![Mouth panel with Ticker: tongue region and the last call's positions](docs/tests/05-mouth-ticker.png)
 
@@ -128,9 +132,13 @@ short buzzes. Rests are exact digital silence.
 - **Bug found: Harmonise was undone by the era's Register**, which shifted the chosen start after
   Harmonise picked it. Register now narrows the allowed starts instead. With Overlap 1 in a
   40-minute pond, consonant starts went from 59% vs 55% (off) to **92% vs 60%**.
-- **Added after your review:** per lane *Ignore others*, *Level* and *Dynamics*. An ignoring lane
-  never answers, is never answered or copied, and talks over the others while they still take
-  strict turns; Talkative 0.1 vs 0.8 gives clearly fewer calls. Dynamics 12 dB spreads call
-  loudness over more than 6 dB, 0 keeps it flat; lane Level -12 dB measures 12.00 dB quieter. ✓
+- **Added after your review:** per lane *Ignore others* and a *loudness range* [low, 0] dB. An
+  ignoring lane never answers, is never answered or copied, and talks over the others while they
+  still take strict turns; Talkative 0.1 vs 0.8 gives clearly fewer calls. With a range of
+  -12 to 0 every call lands inside it (spread over 6 dB), never above 0; low 0 keeps every call
+  level; a -24 to 0 lane is clearly quieter in the mix. ✓
+- Siltclicker added as a factory preset; it replaces Moanback in the example pond and in tests.
+  Its file showed a page bug: a log slider's rounding could step just below the range (Click
+  width 0.04995 vs 0.05). Fixed: sliders clamp after rounding.
 - Full 20-minute example pond: 59 s to render (20× real time), 79 MB of memory (streamed to disk),
   header sizes match the 330 MB file, peak -7.2 dBFS, engines 19 dB clear of their clamps.

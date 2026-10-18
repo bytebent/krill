@@ -141,9 +141,9 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
     with Talkative's odds, never waits for the floor or answers, and its calls don't hold the
     floor, aren't answered and aren't copied. Overlap with others is fine. Harmonise and eras
     still apply.
-  - **Level**: dB offset in the mix (-24 to +12).
-  - **Dynamics**: each call's loudness varies randomly within this many dB (0–24, default 6),
-    eased in over about 50 ms.
+  - **Loudness range** [low, 0] dB, low from -24 to 0 (default -6): each call's loudness is drawn
+    from this range, eased in over about 50 ms. The top is always 0, so a lane only ever gets
+    quieter than its creature, never louder; for a steadily quieter creature use its own Level.
 
 ### 5.2 Turn-taking: the floor
 - A creature that is calling **holds the floor**.

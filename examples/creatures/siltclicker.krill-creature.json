@@ -1,0 +1,83 @@
+{
+  "format": "krill-creature",
+  "version": 2,
+  "name": "Siltclicker",
+  "seed": 43841,
+  "source": "dolphin",
+  "body": "tube",
+  "pitch": {
+    "low": 57,
+    "high": 63,
+    "contour": [-2, 2]
+  },
+  "ranges": {
+    "throat.voicing": [0.85, 1],
+    "throat.breathy": [0, 0.4],
+    "throat.tense": [0, 0.3],
+    "throat.creaky": [0, 0.2],
+    "throat.thin": [0, 0.3],
+    "throat.growl": [0, 0.1],
+    "throat.jitter": [0.05, 0.2],
+    "throat.shimmer": [0.05, 0.2],
+    "throat.source": [0, 0],
+    "dolphin.rate": [-5.784, -2.7920000000000003],
+    "dolphin.keytrack": [1, 1],
+    "dolphin.freerate": [13, 13],
+    "dolphin.pattern": [0, 0],
+    "dolphin.coda": [0, 0],
+    "dolphin.jitter": [0, 0.2],
+    "dolphin.rubato": [0, 0.3],
+    "dolphin.ornament": [0, 0],
+    "dolphin.clicktone": [-0.5, 0.5],
+    "dolphin.clickwidth": [0.05, 0.49319999999999997],
+    "dolphin.ring": [0, 0.3],
+    "dolphin.vowel": [0, 1],
+    "dolphin.shape": [1, 4],
+    "dolphin.sweep": [-1, 1.5],
+    "dolphin.time": [0.3, 1.5],
+    "dolphin.wtranspose": [-12, -12],
+    "dolphin.harmonics": [1, 2],
+    "dolphin.harmlevel": [-18, -8],
+    "dolphin.register": [0.10200000000000001, 0.427],
+    "dolphin.biphon": [0.485, 0.989],
+    "dolphin.size": [0.745, 0.978],
+    "dolphin.sizemode": [0, 1],
+    "tube.tongueX": [0.2, 0.8],
+    "tube.tongueY": [0.3, 0.9],
+    "tube.tip": [0, 0],
+    "tube.jaw": [0.2, 0.6],
+    "tube.lips": [0.4, 0.9],
+    "tube.round": [0, 0.5],
+    "tube.nasal": [0, 0.15],
+    "tube.length": [14, 20],
+    "tube.damping": [0.4, 0.6]
+  },
+  "morph": 0.2,
+  "call": {
+    "units": [5, 9],
+    "unitLength": [0.02, 0.18],
+    "gap": [0.05, 0.5],
+    "legato": false,
+    "evolve": "wander",
+    "evolveAmount": 0.3,
+    "rest": [3, 20],
+    "attack": [0.02, 0.3],
+    "release": [0.2, 1.5]
+  },
+  "signature": {
+    "amount": 0.3,
+    "variation": 0.2
+  },
+  "manner": {
+    "talkative": 0.5,
+    "responsive": 0.5,
+    "mimicry": 0.3,
+    "pan": 0,
+    "wander": 0.2,
+    "level": -3.302
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
+  }
+}

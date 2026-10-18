@@ -156,7 +156,7 @@
       const call = this.calls[k];
       this.cur = call; this.ui = -1; this.unitOn = false;
       this.leanTarget = call.c.lean || 0;          // answers lean away from their caller
-      this.callGainTarget = call.c.gainDb ? Math.pow(10, call.c.gainDb / 20) : 1;   // lane dynamics
+      this.callGainTarget = call.c.gainDb ? Math.pow(10, call.c.gainDb / 20) : 1;   // lane loudness range
       this.send(0, 'attack', call.c.attack);
       this.send(0, 'release', call.c.release);
       if (call.quiet > this.awakeUntil) this.awakeUntil = call.quiet;

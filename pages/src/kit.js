@@ -101,7 +101,7 @@
     const val = p => {
       let v = C.valueAt(scale, step, s.min, s.max, clamp01(p));
       if (!step && s.round) v = Math.round(v / s.round) * s.round;
-      return v;
+      return v < s.min ? s.min : v > s.max ? s.max : v;          // rounding must never leave the range
     };
     if (step && s.max - s.min <= 16) for (let v = s.min; v <= s.max; v++) {
       const t = el('span', 'tk'); t.style.left = (pos(v) * 100) + '%'; track.appendChild(t);

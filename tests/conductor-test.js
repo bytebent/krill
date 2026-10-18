@@ -17,7 +17,7 @@ function pond(names, set) {
   if (set) set(p);
   return PD.normalise(p).pond;
 }
-const FOUR = ['glassfin', 'moanback', 'ticker', 'wicklace'];
+const FOUR = ['glassfin', 'siltclicker', 'ticker', 'wicklace'];   // Moanback only for long monotonous calls
 const overlaps = calls => { let n = 0; for (let i = 0; i < calls.length; i++) for (let j = i + 1; j < calls.length; j++) if (calls[j].t < calls[i].end && calls[i].t < calls[j].end) n++; return n; };
 const stripMotif = sc => JSON.stringify(sc, (k, v) => k === 'motif' ? undefined : v instanceof Float32Array ? Array.from(v) : v);
 
@@ -145,7 +145,7 @@ test('eras: density and register drift within bounds', () => {
 });
 
 test('an hour of a six-creature pond is decided in well under a second', () => {
-  const six = ['glassfin', 'moanback', 'ticker', 'wicklace', 'glassfin', 'ticker'];
+  const six = ['glassfin', 'siltclicker', 'ticker', 'wicklace', 'glassfin', 'ticker'];
   const t = Date.now();
   const sc = CD.conduct(pond(six, p => { p.output.minutes = 60; }));
   const ms = Date.now() - t;
@@ -194,23 +194,27 @@ test('a pond of only ignoring lanes still opens and every lane speaks', () => {
   assert.ok(sc.calls[0].t < 2.1);
 });
 
-test('lane Dynamics vary each call\'s loudness within range; 0 keeps every call level', () => {
-  const sc = CD.conduct(pond(FOUR, p => { p.slots[0].dynamics = 12; p.slots[1].dynamics = 0; }));
+test('lane loudness: every call is drawn from [low, 0] dB, never louder; low 0 keeps calls level', () => {
+  const sc = CD.conduct(pond(FOUR, p => { p.slots[0].loudness = [-12, 0]; p.slots[1].loudness = [0, 0]; }));
   const g0 = sc.calls.filter(c => c.slot === 0).map(c => c.gainDb), g1 = sc.calls.filter(c => c.slot === 1).map(c => c.gainDb);
-  assert.ok(g0.every(g => Math.abs(g) <= 6) && Math.max(...g0) - Math.min(...g0) > 6, 'spread ' + (Math.max(...g0) - Math.min(...g0)).toFixed(1));
+  assert.ok(g0.every(g => g <= 0 && g >= -12) && Math.max(...g0) - Math.min(...g0) > 6, 'spread ' + (Math.max(...g0) - Math.min(...g0)).toFixed(1));
   assert.ok(g1.every(g => g === 0));
-  assert.equal(PD.normalise({ slots: [{ creature: creature('ticker') }] }).pond.slots[0].dynamics, 6, 'new lanes default to 6 dB');
+  const n = PD.normalise({ slots: [{ creature: creature('ticker'), loudness: [-40, 5] }, { creature: creature('ticker') }, { creature: creature('ticker'), level: -3, dynamics: 6 }] }).pond;
+  assert.deepEqual(n.slots[0].loudness, [-24, 0], 'clamped; the top is always 0');
+  assert.deepEqual(n.slots[1].loudness, [-6, 0], 'new lanes default to -6 to 0 dB');
+  assert.deepEqual(n.slots[2].loudness, [-9, 0], 'an early level + dynamics lane converts');
+  assert.equal(n.slots[2].level, undefined);
 });
 
-test('lane Level moves the creature in the mix', () => {
-  const rms = level => {
-    const p = pond(['glassfin'], q => { q.output.minutes = 0.4; q.slots[0].level = level; q.slots[0].dynamics = 0; q.output.fadeIn = 0; q.output.fadeOut = 0; });
+test('a lane with a lower loudness range sounds quieter in the mix', () => {
+  const energy = low => {
+    const p = pond(['glassfin'], q => { q.output.minutes = 0.4; q.slots[0].loudness = [low, 0]; q.output.fadeIn = 0; q.output.fadeOut = 0; });
     const job = M.pondRender(p);
     const L = new Float32Array(job.render.frames), R = new Float32Array(job.render.frames);
     job.render.read(L, R, job.render.frames);
     let e = 0; for (let i = 0; i < L.length; i++) e += L[i] * L[i] + R[i] * R[i];
     return 10 * Math.log10(e);
   };
-  const d = rms(0) - rms(-12);
-  assert.ok(Math.abs(d - 12) < 0.05, d.toFixed(2) + ' dB');
+  const d = energy(0) - energy(-24);
+  assert.ok(d > 4 && d < 24, d.toFixed(1) + ' dB quieter');
 });
