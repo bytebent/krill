@@ -123,6 +123,9 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
 - Pitch is copied as **steps** (scale degrees in key mode, semitones in free mode), transposed into
   the copier's pitch range.
 - **Mutation**: each copy changes one or more elements (a step, a length, a unit added or dropped).
+- As built: the pond remembers 12 motifs by lineage; every call fades them by 0.85 and a copy
+  strengthens its lineage. A creature starting a call recalls a remembered motif with
+  0.3 × Mimicry. [Decided]
 - The pond keeps a short memory of recent motifs. A motif that keeps getting copied spreads; one
   nobody repeats fades out. Over a long piece the pond develops a **dialect**.
 - A single creature in the pond imitates itself: it varies its own signature. [Decided: one creature works]
@@ -141,6 +144,12 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
 - **Overlap** (pond, 0–1): 0 = strict turns, nobody starts while the floor is held; 1 = everyone
   calls freely. In between, interruptions become more likely.
 - If nobody answers and nobody is talkative enough to start, the pond goes quiet.
+- As built: a creature whose rest is over starts with Talkative's odds when the floor is free;
+  while it's held it interrupts with Overlap × Talkative, otherwise it waits for the floor plus a
+  response gap. When a call ends, every other creature may answer with Responsive's odds, which
+  shrink by 0.7 per step of a chain so conversations end; the earliest answers, others join with
+  Overlap's odds. A lone creature answers itself. The most talkative creature always opens the
+  piece. [Decided]
 
 ### 5.3 Key modes
 [Decided: two modes]
@@ -160,7 +169,8 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
 [Decided: voices vary in panning]
 
 - Each creature sits at its Home pan and wanders around it (§3.6). **Width** (pond) scales all positions.
-- Answers lean toward the **side opposite the caller**, so conversations move across the field. [Proposed]
+- Answers lean away from their caller (half the distance between their homes, eased over about
+  half a second), so conversations open out across the field. [Decided]
 - Equal-power panning of each mono creature into stereo. No reverb. [Decided]
 - Distance cue (quieter and duller when a creature drifts "away"): [Later]
 
@@ -169,6 +179,8 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
 - Each step drifts global **Density** (a multiplier on everyone's Talkative and Rest) and a global
   **Register** offset (± a few semitones, in scale steps in key mode). [Decided: this simple drift
   is in v0.1, and moods will extend it later]
+- Register narrows where calls may start (towards the top or bottom of each creature's range)
+  rather than shifting the chosen note, so Harmonise and Register don't undo each other.
 - This is what keeps a 40-minute piece moving. Per-creature **moods** (slowly shifting ranges)
   come later and slot in between ranges and the roll. [Later]
 

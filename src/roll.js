@@ -189,19 +189,23 @@
       let top = 0;
       for (let i = 0; i < n; i++) if (st[i] > top) top = st[i];
       const lastStart = N - 1 - top;                         // start index range [0, lastStart]
+      // Register narrows where a call may start (towards the top or bottom of the range); Harmonise
+      // then chooses among those starts, so the two don't undo each other
+      const r = Math.round(reg);
+      let k0 = 0, k1 = lastStart;
+      if (r > 0) k0 = Math.min(r, lastStart); else if (r < 0) k1 = Math.max(0, lastStart + r);
       let s;
-      if (ctx.harmonise && ctx.sounding && ctx.sounding.length && lastStart > 0) {
-        const w = new Float64Array(lastStart + 1);
+      if (ctx.harmonise && ctx.sounding && ctx.sounding.length && k1 > k0) {
+        const n = k1 - k0 + 1, w = new Float64Array(n);
         const off = st[0];
-        for (let k = 0; k <= lastStart; k++) {
+        for (let k = 0; k < n; k++) {
           let sum = 0;
-          for (const h of ctx.sounding) sum += S.consonance(cc.notes[k + off], h);
+          for (const h of ctx.sounding) sum += S.consonance(cc.notes[k0 + k + off], h);
           const m = sum / ctx.sounding.length;
           w[k] = 0.01 + m * m * m * m;         // steep: Harmonise should clearly harmonise
         }
-        s = rng.weighted(w, lastStart + 1);
-      } else s = rng.int(0, lastStart);
-      if (reg) s = clamp(s + Math.round(reg), 0, lastStart);
+        s = k0 + rng.weighted(w, n);
+      } else s = rng.int(k0, k1);
       for (let i = 0; i < n; i++) anchors[i] = cc.notes[s + st[i]];
     } else {
       let squeeze = 1;

@@ -1,19 +1,21 @@
 #!/usr/bin/env node
-// Render a creature on its own to a WAV file.
-// Usage: node tools/render.js <creature.json> [--seed N] [--minutes M | --seconds S] [--key "D minor" | --free]
+// Render a pond, or a creature on its own, to a WAV file.
+// Usage: node tools/render.js <pond.json | creature.json> [--seed N] [--minutes M | --seconds S] [--key "D minor" | --free]
 //                             [--bits 16|24] [--level dB] [--fade-in S] [--fade-out S] [--out file.wav]
-// The WAV streams to disk in chunks, so any length works.
+// The WAV streams to disk in chunks, so any length works. For a pond, the pond file's own seed, key,
+// length, bits, level and fades are used unless an option overrides them.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const C = require('../src/creature.js');
 const S = require('../src/scales.js');
 const M = require('../src/mixer.js');
+const PD = require('../src/pond.js');
 const { WavWriter } = require('../src/wav.js');
 
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('Usage: node tools/render.js <creature.json> [--seed N] [--minutes M | --seconds S] [--key "D minor" | --free]\n' +
+  console.error('Usage: node tools/render.js <pond.json | creature.json> [--seed N] [--minutes M | --seconds S] [--key "D minor" | --free]\n' +
     '                            [--bits 16|24] [--level dB] [--fade-in S] [--fade-out S] [--out file.wav]');
   process.exit(1);
 }
@@ -21,8 +23,10 @@ function usage(msg) {
 const args = process.argv.slice(2);
 const o = { seed: 1, seconds: 60, pitch: { mode: 'key', root: 'D', scale: 'minor' }, bits: 24, level: 0 };
 let file = null, out = null;
+const given = new Set();
 for (let i = 0; i < args.length; i++) {
   const a = args[i], next = () => { if (i + 1 >= args.length) usage(a + ' needs a value'); return args[++i]; };
+  if (a.startsWith('--')) given.add(a === '--minutes' ? '--seconds' : a === '--free' ? '--key' : a);
   if (a === '--seed') o.seed = parseInt(next(), 10);
   else if (a === '--minutes') o.seconds = parseFloat(next()) * 60;
   else if (a === '--seconds') o.seconds = parseFloat(next());
@@ -39,10 +43,30 @@ for (let i = 0; i < args.length; i++) {
 if (!file) usage();
 if (!Number.isFinite(o.seed) || !(o.seconds > 0) || ![16, 24].includes(o.bits)) usage('Check --seed, the length and --bits');
 
-const { creature, warnings } = C.normalise(fs.readFileSync(file, 'utf8'));
-for (const w of warnings) console.error('warning: ' + w);
-
-const job = M.soloRender(creature, o);
+const text = fs.readFileSync(file, 'utf8');
+let isPond = false;
+try { isPond = JSON.parse(text).format === PD.FORMAT; } catch (e) { usage(file + ' is not JSON'); }
+let job, name;
+if (isPond) {
+  const r = PD.normalise(text);
+  for (const w of r.warnings) console.error('warning: ' + w);
+  const pond = r.pond;
+  if (given.has('--seed')) pond.seed = o.seed;
+  if (given.has('--key')) pond.pitch = Object.assign({ harmonise: pond.pitch.harmonise }, o.pitch);
+  if (given.has('--bits')) pond.output.bits = o.bits;
+  if (given.has('--level')) pond.output.level = o.level;
+  if (given.has('--fade-in')) pond.output.fadeIn = o.fadeIn;
+  if (given.has('--fade-out')) pond.output.fadeOut = o.fadeOut;
+  if (given.has('--seconds')) pond.output.minutes = o.seconds / 60;
+  o.seed = pond.seed; o.bits = pond.output.bits; o.seconds = pond.output.minutes * 60;
+  job = M.pondRender(pond);
+  name = pond.name;
+} else {
+  const r = C.normalise(text);
+  for (const w of r.warnings) console.error('warning: ' + w);
+  job = M.soloRender(r.creature, o);
+  name = r.creature.name;
+}
 if (!out) { fs.mkdirSync('renders', { recursive: true }); out = path.join('renders', job.fileName); }
 const fd = fs.openSync(out, 'w');
 const sink = {
@@ -51,9 +75,9 @@ const sink = {
 };
 const wav = new WavWriter(sink, {
   sampleRate: 48000, bits: o.bits, seed: o.seed,
-  title: 'krill · ' + creature.name + ' · seed ' + o.seed,
+  title: 'krill · ' + name + ' · seed ' + o.seed,
   software: 'krill ' + job.meta.krill,
-  comment: creature.name + ' solo, ' + job.meta.pitch + ', ' + o.seconds + ' s, seed ' + o.seed,
+  comment: name + (isPond ? ' pond' : ' solo') + ', ' + job.meta.pitch + ', ' + o.seconds + ' s, seed ' + o.seed,
   meta: job.meta,
 });
 
@@ -74,7 +98,8 @@ const secs = (Date.now() - t0) / 1000;
 const st = job.render.stats();
 if (tty) process.stderr.write('\r');
 console.log(out);
-console.log('  ' + creature.name + ' · ' + job.meta.pitch + ' · seed ' + o.seed + ' · ' + o.seconds + ' s · ' + job.score.calls.length + ' calls');
-console.log('  rendered in ' + secs.toFixed(1) + ' s (' + (o.seconds / secs).toFixed(1) + '× real time), voice awake ' + (st.awake[0] * 100).toFixed(0) + '% of the time');
+console.log('  ' + name + ' · ' + job.meta.pitch + ' · seed ' + o.seed + ' · ' + o.seconds + ' s · ' + job.score.calls.length + ' calls');
+console.log('  rendered in ' + secs.toFixed(1) + ' s (' + (o.seconds / secs).toFixed(1) + '× real time), voices awake ' + st.awake.map(a => (a * 100).toFixed(0) + '%').join(' ') + ' of the time');
 console.log('  peak ' + st.peakDb.toFixed(1) + ' dBFS before the limiter, limiter max ' + st.maxReductionDb.toFixed(1) + ' dB · ' + (bytes / 1048576).toFixed(1) + ' MB');
-console.log('  engine headroom: peak ' + st.enginePeakDb[0].toFixed(1) + ' dB inside the engine' + (st.enginePeakDb[0] > -1 ? ' · WARNING: near the engine\'s clamp' : ''));
+const worst = Math.max(...st.enginePeakDb);
+console.log('  engine headroom: peak ' + worst.toFixed(1) + ' dB inside the engines' + (worst > -1 ? ' · WARNING: near an engine\'s clamp' : ''));

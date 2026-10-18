@@ -111,6 +111,8 @@
       this.width = opts.width == null ? 1 : opts.width;
       this.panSeed = hash(opts.seed >>> 0, tag('pan'));
       this.panPeriod = 6 + 24 * (1 - this.wander);
+      this.lean = 0; this.leanTarget = 0;
+      this.leanK = 1 - Math.exp(-B / (0.6 * sr));    // the lean moves over about half a second
       this.a = new Float32Array(B);
       this.oL = new Float32Array(B);
       this.blocks = 0;           // blocks actually processed (for the bench)
@@ -151,6 +153,7 @@
     startCall(k) {
       const call = this.calls[k];
       this.cur = call; this.ui = -1; this.unitOn = false;
+      this.leanTarget = call.c.lean || 0;          // answers lean away from their caller
       this.send(0, 'attack', call.c.attack);
       this.send(0, 'release', call.c.release);
       if (call.quiet > this.awakeUntil) this.awakeUntil = call.quiet;
@@ -228,6 +231,11 @@
       // pan: equal power around home, wandering slowly
       let pan = this.home;
       if (this.wander > 0) pan += this.wander * noise(this.panSeed, b * this.bdt, this.panPeriod);
+      if (this.lean !== this.leanTarget) {
+        this.lean += (this.leanTarget - this.lean) * this.leanK;
+        if (Math.abs(this.lean - this.leanTarget) < 1e-4) this.lean = this.leanTarget;
+      }
+      pan += this.lean;
       pan = (pan > 1 ? 1 : pan < -1 ? -1 : pan) * this.width;
       const th = (pan + 1) * Math.PI / 4, g = this.gain, gl = Math.cos(th) * g, gr = Math.sin(th) * g;
       for (let i = 0; i < B; i++) { const x = src[i]; outL[i] += x * gl; outR[i] += x * gr; }

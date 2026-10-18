@@ -3,7 +3,7 @@
 Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 `node tests/run.js`.
 
-**Now: 62 Node tests passing** (about 19 s, most of it the audio tests), plus **21 browser checks**
+**Now: 77 Node tests passing** (about 19 s, most of it the audio tests), plus **21 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -107,3 +107,26 @@ short buzzes. Rests are exact digital silence.
 - **Low-pass:** off is bit-identical to no filter and creates nothing; on at 1 kHz cuts the band
   around 4 kHz to the bottom of the 60 dB window while the voice stays; unity gain at DC. ✓
 - Phone layout dropped (desktop only, min width 960 px).
+
+## Batch 06 · conductor (and 07 · pond render)
+
+![The example pond's conversation, 3 minutes](docs/tests/06-pond-lanes.png)
+
+![Spectrogram of the same 3 minutes](docs/tests/06-pond-spectrogram.png)
+
+- Same pond, same score; another seed differs. Pond files repair and keep unknown keys. ✓
+- Overlap 0: no two calls overlap at all; Overlap 1: plenty do. A creature never overlaps
+  itself. ✓
+- Responsive 0: no answers; Talkative 0 as well: only the opening call. ✓
+- Mimicry 1: copies carry their source's lineage, and lineages reach three creatures. A lone
+  creature copies itself. Answer chains end. ✓
+- Answers lean away from their caller; re-rolling a slot changes that creature. ✓
+- Eras: density and register drift within bounds. ✓
+- An hour of a six-creature pond is decided in about 60 ms.
+- A pond render doesn't depend on chunk size, every creature sounds, all engines keep 6 dB+ of
+  headroom. ✓
+- **Bug found: Harmonise was undone by the era's Register**, which shifted the chosen start after
+  Harmonise picked it. Register now narrows the allowed starts instead. With Overlap 1 in a
+  40-minute pond, consonant starts went from 59% vs 55% (off) to **92% vs 60%**.
+- Full 20-minute example pond: 59 s to render (20× real time), 79 MB of memory (streamed to disk),
+  header sizes match the 330 MB file, peak -7.2 dBFS, engines 19 dB clear of their clamps.

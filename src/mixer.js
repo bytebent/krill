@@ -145,6 +145,32 @@
     }
   }
 
+  // ---------- a pond ----------
+  // pond: a pond object or file (pond.normalise is applied); opts: { seconds, sampleRate }
+  function pondRender(pondIn, opts) {
+    opts = opts || {};
+    const PD = inNode ? require('./pond.js') : K.pond;
+    const CD = inNode ? require('./conductor.js') : K.conductor;
+    const pond = PD.normalise(pondIn).pond;
+    const sr = opts.sampleRate || 48000;
+    const seconds = opts.seconds > 0 ? opts.seconds : pond.output.minutes * 60;
+    const score = CD.conduct(pond, { seconds });
+    const voices = [];
+    score.slots.forEach((slot, i) => {
+      if (!slot) return;
+      const calls = score.calls.filter(c => c.slot === i);
+      voices.push(new Voice(slot, calls, {
+        sampleRate: sr, seed: hash(pond.seed, tag('slot'), i, pond.slots[i].rerolls || 0),
+        pan: slot.pan, wander: slot.wander, level: slot.level, width: pond.space.width,
+      }));
+    });
+    const fadeIn = Math.min(pond.output.fadeIn, seconds * 0.25), fadeOut = Math.min(pond.output.fadeOut, seconds * 0.25);
+    const render = new Render(voices, { sampleRate: sr, frames: Math.round(seconds * sr), level: pond.output.level, fadeIn, fadeOut });
+    const meta = { krill: VER.KRILL, engines: VER.ENGINES, kind: 'pond', seed: pond.seed, seconds, sampleRate: sr, pitch: score.pitch, pond };
+    const len = seconds >= 60 && seconds % 60 === 0 ? (seconds / 60) + 'm' : Math.round(seconds) + 's';
+    return { render, score, meta, pond, fileName: 'krill_' + pond.seed + '_' + len + '.wav' };
+  }
+
   // ---------- a creature on its own ----------
   // opts: { seed, seconds, pitch ({mode, root, scale} or makePitch()), sampleRate, level, fadeIn, fadeOut }
   function soloRender(creature, opts) {
@@ -176,7 +202,7 @@
     return 'krill_' + (n ? n + '_' : '') + seed + '_' + len + '.wav';
   }
 
-  const api = { Limiter, Render, soloRender, fileName, LOOK };
+  const api = { Limiter, Render, soloRender, pondRender, fileName, LOOK };
   if (inNode) module.exports = api;
   else K.mixer = api;
 })(typeof self !== 'undefined' ? self : this);
