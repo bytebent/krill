@@ -3,7 +3,7 @@
 Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 `node tests/run.js`.
 
-**Now: 77 Node tests passing** (about 19 s, most of it the audio tests), plus **21 browser checks**
+**Now: 81 Node tests passing** (about 19 s, most of it the audio tests), plus **21 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -128,5 +128,9 @@ short buzzes. Rests are exact digital silence.
 - **Bug found: Harmonise was undone by the era's Register**, which shifted the chosen start after
   Harmonise picked it. Register now narrows the allowed starts instead. With Overlap 1 in a
   40-minute pond, consonant starts went from 59% vs 55% (off) to **92% vs 60%**.
+- **Added after your review:** per lane *Ignore others*, *Level* and *Dynamics*. An ignoring lane
+  never answers, is never answered or copied, and talks over the others while they still take
+  strict turns; Talkative 0.1 vs 0.8 gives clearly fewer calls. Dynamics 12 dB spreads call
+  loudness over more than 6 dB, 0 keeps it flat; lane Level -12 dB measures 12.00 dB quieter. ✓
 - Full 20-minute example pond: 59 s to render (20× real time), 79 MB of memory (streamed to disk),
   header sizes match the 330 MB file, peak -7.2 dBFS, engines 19 dB clear of their clamps.

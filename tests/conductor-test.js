@@ -168,3 +168,49 @@ test('a pond renders: every creature sounds, chunking doesn\'t matter', () => {
   assert.equal(a.job.meta.kind, 'pond');
   assert.ok(st.enginePeakDb.every(x => x < -6), 'headroom ' + st.enginePeakDb.map(x => x.toFixed(1)).join(','));
 });
+
+test('Ignore others: a lane speaks on its own, by its Talkativeness, outside the conversation', () => {
+  const mk = talk => pond(FOUR, p => {
+    p.talk.overlap = 0;
+    p.slots[3].ignore = true;
+    p.slots[3].creature.manner.talkative = talk;
+    for (const s of p.slots) if (s) { s.creature.manner.responsive = 1; s.creature.manner.mimicry = 1; }
+  });
+  const sc = CD.conduct(mk(0.8));
+  const mine = sc.calls.filter(c => c.slot === 3), others = sc.calls.filter(c => c.slot !== 3);
+  assert.ok(mine.length > 10);
+  assert.ok(mine.every(c => c.depth === 0 && c.of == null && c.lineage === null), 'never answers or copies');
+  assert.ok(sc.calls.every(c => c.from !== 3), 'nobody answers it');
+  assert.equal(overlaps(others), 0, 'the conversation still takes turns');
+  assert.ok(overlaps(sc.calls) > 0, 'it talks over the others');
+  assert.ok(others.some(c => c.depth > 0), 'the others still converse');
+  const quiet = CD.conduct(mk(0.1)).calls.filter(c => c.slot === 3).length;
+  assert.ok(quiet < mine.length * 0.7, 'Talkative sets how often: ' + quiet + ' vs ' + mine.length);
+});
+
+test('a pond of only ignoring lanes still opens and every lane speaks', () => {
+  const sc = CD.conduct(pond(FOUR, p => { for (const s of p.slots) if (s) s.ignore = true; }));
+  assert.equal(new Set(sc.calls.map(c => c.slot)).size, 4);
+  assert.ok(sc.calls[0].t < 2.1);
+});
+
+test('lane Dynamics vary each call\'s loudness within range; 0 keeps every call level', () => {
+  const sc = CD.conduct(pond(FOUR, p => { p.slots[0].dynamics = 12; p.slots[1].dynamics = 0; }));
+  const g0 = sc.calls.filter(c => c.slot === 0).map(c => c.gainDb), g1 = sc.calls.filter(c => c.slot === 1).map(c => c.gainDb);
+  assert.ok(g0.every(g => Math.abs(g) <= 6) && Math.max(...g0) - Math.min(...g0) > 6, 'spread ' + (Math.max(...g0) - Math.min(...g0)).toFixed(1));
+  assert.ok(g1.every(g => g === 0));
+  assert.equal(PD.normalise({ slots: [{ creature: creature('ticker') }] }).pond.slots[0].dynamics, 6, 'new lanes default to 6 dB');
+});
+
+test('lane Level moves the creature in the mix', () => {
+  const rms = level => {
+    const p = pond(['glassfin'], q => { q.output.minutes = 0.4; q.slots[0].level = level; q.slots[0].dynamics = 0; q.output.fadeIn = 0; q.output.fadeOut = 0; });
+    const job = M.pondRender(p);
+    const L = new Float32Array(job.render.frames), R = new Float32Array(job.render.frames);
+    job.render.read(L, R, job.render.frames);
+    let e = 0; for (let i = 0; i < L.length; i++) e += L[i] * L[i] + R[i] * R[i];
+    return 10 * Math.log10(e);
+  };
+  const d = rms(0) - rms(-12);
+  assert.ok(Math.abs(d - 12) < 0.05, d.toFixed(2) + ' dB');
+});

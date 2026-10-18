@@ -136,6 +136,14 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
 - **1 to 6 slots**, each holding one creature file. One creature alone is valid. [Decided]
 - Each slot owns a stripe colour in stripe order: 1 green, 2 yellow, 3 orange, 4 red, 5 purple, 6 blue. [Decided]
 - The same creature file may be loaded into several slots; each gets its own random stream.
+- Per slot (lane) settings, saved in the pond: [Decided]
+  - **Ignore others**: the lane is outside the conversation. It speaks whenever its rest is over,
+    with Talkative's odds, never waits for the floor or answers, and its calls don't hold the
+    floor, aren't answered and aren't copied. Overlap with others is fine. Harmonise and eras
+    still apply.
+  - **Level**: dB offset in the mix (-24 to +12).
+  - **Dynamics**: each call's loudness varies randomly within this many dB (0–24, default 6),
+    eased in over about 50 ms.
 
 ### 5.2 Turn-taking: the floor
 - A creature that is calling **holds the floor**.

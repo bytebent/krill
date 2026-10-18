@@ -112,6 +112,8 @@
       this.panSeed = hash(opts.seed >>> 0, tag('pan'));
       this.panPeriod = 6 + 24 * (1 - this.wander);
       this.lean = 0; this.leanTarget = 0;
+      this.callGain = 1; this.callGainTarget = 1;
+      this.gainK = 1 - Math.exp(-B / (0.05 * sr));   // a call's loudness eases in over about 50 ms
       this.leanK = 1 - Math.exp(-B / (0.6 * sr));    // the lean moves over about half a second
       this.a = new Float32Array(B);
       this.oL = new Float32Array(B);
@@ -154,6 +156,7 @@
       const call = this.calls[k];
       this.cur = call; this.ui = -1; this.unitOn = false;
       this.leanTarget = call.c.lean || 0;          // answers lean away from their caller
+      this.callGainTarget = call.c.gainDb ? Math.pow(10, call.c.gainDb / 20) : 1;   // lane dynamics
       this.send(0, 'attack', call.c.attack);
       this.send(0, 'release', call.c.release);
       if (call.quiet > this.awakeUntil) this.awakeUntil = call.quiet;
@@ -236,8 +239,12 @@
         if (Math.abs(this.lean - this.leanTarget) < 1e-4) this.lean = this.leanTarget;
       }
       pan += this.lean;
+      if (this.callGain !== this.callGainTarget) {
+        this.callGain += (this.callGainTarget - this.callGain) * this.gainK;
+        if (Math.abs(this.callGain - this.callGainTarget) < 1e-5) this.callGain = this.callGainTarget;
+      }
       pan = (pan > 1 ? 1 : pan < -1 ? -1 : pan) * this.width;
-      const th = (pan + 1) * Math.PI / 4, g = this.gain, gl = Math.cos(th) * g, gr = Math.sin(th) * g;
+      const th = (pan + 1) * Math.PI / 4, g = this.gain * this.callGain, gl = Math.cos(th) * g, gr = Math.sin(th) * g;
       for (let i = 0; i < B; i++) { const x = src[i]; outL[i] += x * gl; outR[i] += x * gr; }
       return true;
     }

@@ -70,7 +70,10 @@
           "cutoff": 8000
         }
       },
-      "rerolls": 0
+      "rerolls": 0,
+      "ignore": false,
+      "level": 0,
+      "dynamics": 6
     },
     {
       "creature": {
@@ -134,7 +137,10 @@
           "cutoff": 8000
         }
       },
-      "rerolls": 0
+      "rerolls": 0,
+      "ignore": false,
+      "level": -2,
+      "dynamics": 6
     },
     {
       "creature": {
@@ -211,7 +217,10 @@
           "cutoff": 8000
         }
       },
-      "rerolls": 0
+      "rerolls": 0,
+      "ignore": false,
+      "level": -4,
+      "dynamics": 8
     },
     {
       "creature": {
@@ -266,7 +275,10 @@
           "cutoff": 8000
         }
       },
-      "rerolls": 0
+      "rerolls": 0,
+      "ignore": true,
+      "level": -6,
+      "dynamics": 8
     },
     null,
     null

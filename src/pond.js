@@ -2,7 +2,9 @@
  * krill · pond format (.krill-pond.json)
  *
  * A pond is up to six slots, each holding a creature (embedded, so the file alone can re-render
- * a piece) and a re-roll count, plus pitch, talk, space and output settings and a seed.
+ * a piece), a re-roll count and its lane settings, plus pitch, talk, space and output settings
+ * and a seed. Lane settings: ignore (outside the conversation: speaks on its own, isn't heard),
+ * level (dB offset in the mix) and dynamics (dB of random call-to-call loudness variation).
  * normalise() repairs and fills in like creature.normalise(); unknown keys are kept.
  *
  * Works in the browser (Krill.pond) and in Node (module.exports).
@@ -18,6 +20,7 @@
   const FORMAT = 'krill-pond';
   const VERSION = 1;
   const SLOTS = 6;
+  const SLOT_FIELDS = { level: { min: -24, max: 12, def: 0 }, dynamics: { min: 0, max: 24, def: 6 } };
   const COLORS = ['var(--green)', 'var(--yellow)', 'var(--orange)', 'var(--red)', 'var(--purple)', 'var(--blue)'];   // stripe order
 
   const FIELDS = [
@@ -85,7 +88,12 @@
       try {
         const r = C.normalise(s.creature);
         for (const w of r.warnings) warn.push('slot ' + (i + 1) + ': ' + w);
-        o.slots.push(Object.assign({}, s, { creature: r.creature, rerolls: Number.isInteger(s.rerolls) && s.rerolls > 0 ? s.rerolls : 0 }));
+        const slot = Object.assign({}, s, { creature: r.creature, rerolls: Number.isInteger(s.rerolls) && s.rerolls > 0 ? s.rerolls : 0, ignore: !!s.ignore });
+        for (const k in SLOT_FIELDS) {
+          const f = SLOT_FIELDS[k];
+          slot[k] = Number.isFinite(+s[k]) && s[k] !== null ? clamp(+s[k], f.min, f.max) : f.def;
+        }
+        o.slots.push(slot);
       } catch (e) { warn.push('slot ' + (i + 1) + ': ' + e.message + ', emptied'); o.slots.push(null); }
     }
     if (slots.length > SLOTS && slots.slice(SLOTS).some(Boolean)) warn.push('only ' + SLOTS + ' slots are used');
@@ -102,7 +110,10 @@
 
   const fileName = p => (p.name || 'pond').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.krill-pond.json';
 
-  const api = { FORMAT, VERSION, SLOTS, COLORS, FIELDS, defaults, normalise, serialise, fileName };
+  // a new lane for a creature
+  const slotFor = (creature, opts) => Object.assign({ creature, rerolls: 0, ignore: false, level: SLOT_FIELDS.level.def, dynamics: SLOT_FIELDS.dynamics.def }, opts || {});
+
+  const api = { FORMAT, VERSION, SLOTS, COLORS, FIELDS, SLOT_FIELDS, defaults, normalise, serialise, fileName, slotFor };
   if (inNode) module.exports = api;
   else K.pond = api;
 })(typeof self !== 'undefined' ? self : this);

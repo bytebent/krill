@@ -13,6 +13,10 @@
  *              them all; a starting creature sometimes recalls a strong one. That's the dialect.
  *   harmonise  in key, a call's start weighs against the notes sounding at that moment.
  *   eras       every Era length the pond's density (rests ÷ density) and register drift a step.
+ *   ignore     a lane set to ignore others is outside the conversation: it starts whenever its
+ *              rest is over (odds: Talkative), never waits for the floor or answers, and its
+ *              calls don't hold the floor, aren't answered and aren't remembered.
+ *   dynamics   each call gets a random loudness offset within the lane's Dynamics (dB).
  *   streams    each slot's decisions and sounds come from its own stream (seed, slot, re-rolls),
  *              so re-rolling a slot changes that creature; the others only shift where they react.
  *
@@ -83,7 +87,7 @@
       if (!s) return;
       const rng = new Rng(hash(seed, tag('slot'), i, s.rerolls || 0));
       const caller = new R.Caller(s.creature, pitch, rng);
-      slots.push({ i, caller, cc: caller.cc, rng, busyUntil: -1, next: Infinity, home: caller.cc.pan });
+      slots.push({ i, caller, cc: caller.cc, rng, busyUntil: -1, next: Infinity, home: caller.cc.pan, ignore: !!s.ignore, dyn: s.dynamics || 0 });
     });
     const score = { format: 'krill-score', version: 1, seconds, seed, pitch: pitch.label, slots: [], calls: [], eras: era.knots.filter(k => k.t <= seconds) };
     score.slots = pond.slots.map((s, i) => s ? Object.assign(R.slotInfo(slots.find(x => x.i === i).cc), { slot: i, color: PD.COLORS[i] }) : null);
@@ -95,8 +99,9 @@
     const restOf = (s, t) => s.caller.rest(era.at(t).density);
 
     // start: the most talkative creature opens within a couple of seconds; the others are staggered
-    let opener = slots[0];
-    for (const s of slots) if (s.cc.talkative > opener.cc.talkative) opener = s;
+    const talkers = slots.filter(s => !s.ignore).length ? slots.filter(s => !s.ignore) : slots;
+    let opener = talkers[0];
+    for (const s of talkers) if (s.cc.talkative > opener.cc.talkative) opener = s;
     for (const s of slots) s.next = s === opener ? s.rng.range(0.2, 2) : s.rng.next() * restOf(s, 0);
     opener.forced = true;
 
@@ -119,7 +124,8 @@
     function place(s, call, info) {
       call.slot = s.i;
       call.depth = info.depth;
-      call.lineage = remember(call, call.kind === 'copy' ? info.lineage : null);
+      call.gainDb = s.dyn > 0 ? (s.rng.next() * 2 - 1) * s.dyn / 2 : 0;
+      call.lineage = s.ignore ? null : remember(call, call.kind === 'copy' ? info.lineage : null);
       if (info.of != null) call.of = info.of;
       if (info.from != null) call.from = info.from;
       call.lean = info.lean || 0;
@@ -128,13 +134,14 @@
       active.push(call);
       s.busyUntil = call.end;
       s.next = call.end + restOf(s, call.end);
+      if (s.ignore) return;                         // not heard: no floor, no answers
       if (call.end > floorUntil) floorUntil = call.end;
       // who answers this one?
       if (info.depth >= MAX_DEPTH) return;
       const decay = Math.pow(CHAIN, info.depth);
       const cand = [];
       for (const o of slots) {
-        if (o === s && !solo) continue;
+        if ((o === s && !solo) || o.ignore) continue;
         if (o.rng.chance(o.cc.responsive * decay)) cand.push({ o, t: call.end + gap() });
       }
       if (!cand.length) return;
@@ -172,6 +179,11 @@
       const s = who, t = evT;                          // a creature tries to start
       if (s.busyUntil > t) { s.next = s.busyUntil + restOf(s, s.busyUntil); continue; }
       const forced = s.forced; s.forced = false;
+      if (s.ignore) {
+        if (!forced && !s.rng.chance(s.cc.talkative)) { s.next = t + restOf(s, t) * 0.5; continue; }
+        place(s, s.caller.call(t, ctxFor(s, t)), { depth: 0 });
+        continue;
+      }
       if (floorUntil > t && !forced) {
         if (!s.rng.chance(overlap * s.cc.talkative)) { s.next = floorUntil + gap(); continue; }
       } else if (!forced && !s.rng.chance(s.cc.talkative)) { s.next = t + restOf(s, t) * 0.5; continue; }
