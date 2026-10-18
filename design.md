@@ -30,6 +30,7 @@ still to decide, **[Later]** agreed to leave out of the prototype.
 - **Silence is allowed.** A pond can go quiet. Long pieces need space.
 - **Repeatable.** Same files, same settings, same seed: the same WAV, bit for bit.
 - **Plain, short, a little dry** copy, matching the bytebent voice.
+- **Efficient, never sloppy.** Nothing inactive is computed: see §7.3. [Decided]
 
 ## 3. Creatures
 
@@ -120,7 +121,7 @@ suggests a random one (e.g. "Glassfin", "Moanback"). [Decided: names needed for 
 
 ### 5.1 Slots
 - **1 to 6 slots**, each holding one creature file. One creature alone is valid. [Decided]
-- Each slot owns a stripe colour: 1 green, 2 yellow, 3 orange, 4 red, 5 purple, 6 blue. [Proposed]
+- Each slot owns a stripe colour in stripe order: 1 green, 2 yellow, 3 orange, 4 red, 5 purple, 6 blue. [Decided]
 - The same creature file may be loaded into several slots; each gets its own random stream.
 
 ### 5.2 Turn-taking: the floor
@@ -155,7 +156,8 @@ suggests a random one (e.g. "Glassfin", "Moanback"). [Decided: names needed for 
 ### 5.5 Eras
 - **Era length** (pond): how often the pond's overall state takes a slow random step.
 - Each step drifts global **Density** (a multiplier on everyone's Talkative and Rest) and a global
-  **Register** offset (± a few semitones, in scale steps in key mode). [Proposed]
+  **Register** offset (± a few semitones, in scale steps in key mode). [Decided: this simple drift
+  is in v0.1, and moods will extend it later]
 - This is what keeps a 40-minute piece moving. Per-creature **moods** (slowly shifting ranges)
   come later and slot in between ranges and the roll. [Later]
 
@@ -286,8 +288,9 @@ panels with an LED in each legend, gel buttons, Lucida Grande, Monaco only on th
 stripe colours are available. [Decided]
 
 ### 9.1 Creature page
-Larger than the pond page, because of the number of parameters. [Decided] Uses the source's own
-colours: Throat red/blue, Dolphin blue, mouth-tube purple.
+Larger than the pond page, because of the number of parameters, and **one long page** with all
+panels stacked, no tabs. [Decided] Uses the source's own colours: Throat red/blue, Dolphin blue,
+mouth-tube purple.
 
 ```
 ┌─ ▢ ═════  [≡] krill · creature · Glassfin [🎲]  ═════ [Pond] ─┐
@@ -348,6 +351,27 @@ colours: Throat red/blue, Dolphin blue, mouth-tube purple.
 - Lengths above the preview limit show the Node command to run instead, with the pond file to save.
 - Clicking a creature's name opens it on the creature page.
 
+### 7.3 Efficiency rules
+[Decided: don't compute what isn't active]
+
+- **Score stage**: a creature is compiled once into flat arrays. Locked parameters are written
+  once, never rolled. Morph, Evolve, mutation and harmonise code paths are skipped entirely when
+  their amount is 0 or they're off. Mouth parameters don't exist for a creature without a mouth.
+- **Audio stage** (batch 04 on): a creature with nothing sounding and a decayed tail is not
+  processed at all, including its tube. Parameters are sent to an engine only when their value
+  changes, once per 32-sample block at most. Dolphin's LFOs stay off, so they cost nothing.
+  The tube runs one channel, not two.
+- **Pages**: the LCD redraws only when something changed, and slows down for "reduce motion".
+  The sketch is recomputed only when a setting that affects the score changes. Hidden panels
+  (Mouth with no mouth) don't update.
+- Speed is measured, not assumed: `tools/bench.js` (from batch 04) reports render speed per species
+  so regressions show up.
+
+### 7.4 Pitch in the score
+The score stores pitch as **fractional MIDI notes** (60.37 = C4 plus 37 cents). The audio stage
+splits that into the engine's whole note plus Detune in cents. Contours are a start and an end
+pitch per unit; the audio stage moves between them.
+
 ## 10. Later
 - **Moods**: per-creature ranges that drift slowly over a piece.
 - **Live nudging**: poke a creature to call, freeze the current mood. Needs the live plugin.
@@ -358,6 +382,4 @@ colours: Throat red/blue, Dolphin blue, mouth-tube purple.
 - **Fricative noise stream** from Throat into the tube, if mouth-tube gains it.
 
 ## 11. Open
-1. Slot colours (§5.1): stripe order by slot, OK?
-2. Creature page: one long scrolling page, or tabs for Source / Mouth / Call?
-3. Should Era drift be in v0.1 (§5.5), or wait with moods?
+None at the moment.
