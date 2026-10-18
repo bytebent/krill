@@ -8,6 +8,7 @@ Status: **prototype, batch 04 of 09**. Creatures render on their own to WAV; pon
 
 - `design.md`: what krill is and how it works
 - `plan.md`: build batches for the prototype
+- `tests.md`: what's been tested and the results, with screenshots
 
 ## Layout
 

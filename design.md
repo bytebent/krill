@@ -390,6 +390,16 @@ splits that into the engine's whole note plus Detune in cents. Contours are a st
 pitch per unit; the audio stage moves between them.
 
 ## 10. Later
+- **More sources** [Decided as a long-term aim]: any future bytebent synth should be able to
+  become a creature source. What that takes, from how Throat and Dolphin fit in now:
+  - a parameter table in `creature.js` (range, fixed or krill-driven, scale, step),
+  - the engine interface Krill already uses: `new Engine(sampleRate, seed)`, `setParam`,
+    `noteOn/noteOff`, `process` in 32-sample blocks, plus one way to move pitch continuously
+    (like Throat's Transpose or Dolphin's bend),
+  - a loudness calibration entry and headroom values in `voice.js`,
+  - any key-snapping rules for parameters that move pitch.
+  Today these are written per engine; when a third source arrives, they should become one
+  adapter object per engine so new sources don't touch the core.
 - **Moods**: per-creature ranges that drift slowly over a piece.
 - **Live nudging**: poke a creature to call, freeze the current mood. Needs the live plugin.
 - **Automated key changes** between eras.
