@@ -40,17 +40,25 @@
     const c = creature;
     const act = C.activeParams(c);
     const keyMode = !pitch.free;
+    // in key, Dolphin's Size may only move the whistle by whole octaves
+    if (keyMode && c.source === 'dolphin') {
+      const sm = act.find(a => a.spec.key === 'dolphin.sizemode');
+      if (sm) { sm.lo = sm.hi = 0; sm.locked = true; }
+    }
     // dolphin parameters that must follow the note in key mode, even when locked, but only when
     // snapping can actually change them (anchors are already on the scale)
     let snapKeys = null;
     if (keyMode && c.source === 'dolphin') {
       const range = k => { const a = act.find(x => x.spec.key === k); return a ? [a.lo, a.hi] : null; };
-      const kt = range('dolphin.keytrack'), rate = range('dolphin.rate'), fr = range('dolphin.freerate'), wt = range('dolphin.wtranspose');
+      const kt = range('dolphin.keytrack'), rate = range('dolphin.rate'), fr = range('dolphin.freerate'),
+        wt = range('dolphin.wtranspose'), sw = range('dolphin.sweep'), sh = range('dolphin.shape');
       snapKeys = new Set();
       const ktCanBeOn = !kt || kt[1] >= 0.5, ktCanBeOff = !!kt && kt[0] < 0.5;
       if (ktCanBeOn && rate && !(rate[0] === rate[1] && Number.isInteger(rate[0]))) snapKeys.add('dolphin.rate');
       if (ktCanBeOff && fr && fr[1] > PULSE_PITCH_HZ) snapKeys.add('dolphin.freerate');
       if (wt && !(wt[0] === wt[1] && wt[0] % 12 === 0)) snapKeys.add('dolphin.wtranspose');
+      const shapeCanSweep = !sh || sh[1] > 0;                 // shape 0 = Flat ignores Sweep
+      if (shapeCanSweep && sw && !(sw[0] === sw[1] && Number.isInteger(sw[0]))) snapKeys.add('dolphin.sweep');
     }
 
     const vary = [], locked = [];
@@ -60,7 +68,7 @@
     }
     const fixed = [];
     for (const eng of c.mouth ? [c.source, 'mouth'] : [c.source]) {
-      for (const s of C.ENGINES[eng]) if (s.use === 'fixed') fixed.push({ key: s.key, engine: eng, id: s.id, value: s.value });
+      for (const s of C.ENGINES[eng]) if (s.use === 'fixed') fixed.push({ key: s.key, engine: eng, id: s.id, value: s.value, headroom: !!s.headroom });
     }
     const V = vary.length;
     const cc = {
@@ -83,7 +91,7 @@
       sigAmount: c.signature.amount, sigVariation: c.signature.variation,
       talkative: c.manner.talkative, responsive: c.manner.responsive, mimicry: c.manner.mimicry,
       pan: c.manner.pan, wander: c.manner.wander, level: c.manner.level,
-      iRate: -1, iFree: -1, iWt: -1, iKeytrack: -1,
+      iRate: -1, iFree: -1, iWt: -1, iKeytrack: -1, iSweep: -1,
       signature: null,
     };
     for (const l of locked) cc.lockedValue[l.key] = l.value;
@@ -91,6 +99,7 @@
     cc.iFree = cc.vKey.indexOf('dolphin.freerate');
     cc.iWt = cc.vKey.indexOf('dolphin.wtranspose');
     cc.iKeytrack = cc.vKey.indexOf('dolphin.keytrack');
+    cc.iSweep = cc.vKey.indexOf('dolphin.sweep');
     if (keyMode) {
       cc.notes = pitch.notesIn(cc.low, cc.high);
       if (!cc.notes.length) cc.notes = [pitch.snap((cc.low + cc.high) / 2)];
@@ -229,7 +238,7 @@
     const release = valueAt('log', 0, cc.release[0], cc.release[1], motif.rel);
     const out = new Array(n);
     let t = t0;
-    const snapDolphin = cc.keyMode && (cc.iRate >= 0 || cc.iFree >= 0 || cc.iWt >= 0);
+    const snapDolphin = cc.keyMode && (cc.iRate >= 0 || cc.iFree >= 0 || cc.iWt >= 0 || cc.iSweep >= 0);
     for (let i = 0; i < n; i++) {
       const u = units[i];
       const note = anchors[i];
@@ -266,7 +275,8 @@
     };
   }
 
-  // in key mode, dolphin pulse rates heard as pitch, and the whistle transpose, land on the scale
+  // in key mode, dolphin pulse rates heard as pitch, the whistle transpose and the end of a whistle
+  // sweep all land on the scale (Size moves the whistle by whole octaves, which keeps it in key)
   function snapPulse(cc, v, note) {
     const kt = cc.iKeytrack >= 0 ? v[cc.iKeytrack] : cc.lockedValue['dolphin.keytrack'];
     const keytrack = kt === undefined ? true : kt >= 0.5;
@@ -278,6 +288,10 @@
       if (f > PULSE_PITCH_HZ) v[cc.iFree] = clamp(mtof(cc.pitch.snap(ftom(f))), 1, 2000);
     }
     if (cc.iWt >= 0) v[cc.iWt] = clamp(cc.pitch.snap(note + v[cc.iWt]) - note, -24, 24);
+    if (cc.iSweep >= 0) {
+      const w = note + (cc.iWt >= 0 ? v[cc.iWt] : (cc.lockedValue['dolphin.wtranspose'] || 0));
+      v[cc.iSweep] = clamp((cc.pitch.snap(w + 12 * v[cc.iSweep]) - w) / 12, -3, 3);
+    }
   }
 
   // ---------- a creature that calls ----------
@@ -334,7 +348,11 @@
   }
 
   function slotInfo(cc) {
-    return { name: cc.name, source: cc.source, mouth: cc.mouth, vary: cc.vKey, locked: cc.locked, fixed: cc.fixed };
+    return {
+      name: cc.name, source: cc.source, mouth: cc.mouth,
+      vary: cc.vKey, varyStep: cc.vSpec.map(s => s.step ? 1 : 0), locked: cc.locked, fixed: cc.fixed,
+      pan: cc.pan, wander: cc.wander, level: cc.level,
+    };
   }
 
   // plain JSON form of a score (typed arrays become arrays, motifs dropped)

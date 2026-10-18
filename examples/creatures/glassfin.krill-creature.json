@@ -6,8 +6,8 @@
   "source": "dolphin",
   "mouth": false,
   "pitch": {
-    "low": 64,
-    "high": 86,
+    "low": 40,
+    "high": 60,
     "contour": [-3, 7]
   },
   "ranges": {
@@ -31,7 +31,7 @@
     "dolphin.harmlevel": [-18, -8],
     "dolphin.register": [0.75, 1],
     "dolphin.biphon": [0, 0.35],
-    "dolphin.size": [0.2, 0.6],
+    "dolphin.size": [0.25, 0.5],
     "dolphin.sizemode": [0, 0]
   },
   "morph": 0.3,
@@ -56,6 +56,6 @@
     "mimicry": 0.5,
     "pan": -0.4,
     "wander": 0.3,
-    "level": -8
+    "level": -6
   }
 }

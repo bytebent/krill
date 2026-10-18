@@ -81,6 +81,9 @@ inside the range. Setting min equal to max locks a parameter. [Decided]
   semitones (range), which the engine glides through. Dolphin's own whistle Shape/Sweep still
   apply on top. [Proposed]
 - Key behaviour is set by the pond (§5.3).
+- **Dolphin pitch** is the note the engine receives, as on the Dolphin bench: pulse rates follow it
+  (Key track) and the whistle sounds **Size octaves above it** (small = up to 4 octaves higher).
+  The creature page will show both the note and the whistle pitch.
 
 ### 3.5 Signature
 - Each creature has a **signature call**, generated from its **creature seed** and its ranges, and
@@ -138,8 +141,9 @@ suggests a random one (e.g. "Glassfin", "Moanback"). [Decided: names needed for 
 - **In key**: Root and Scale (Major, Minor, Dorian, Phrygian, Lydian, Mixolydian, Pentatonic major,
   Pentatonic minor, Whole tone, Chromatic). Every anchor pitch snaps to the scale. Contours,
   glides and whistle sweeps move freely between anchors. Burst-pulse rates fast enough to be heard
-  as pitch also snap; slow clicks are rhythm and don't. Copied motifs move by scale degree, so they
-  stay in key.
+  as pitch also snap; slow clicks are rhythm and don't. Dolphin's Whistle transpose and the end of
+  a whistle Sweep snap too, and Size moves the whistle by whole octaves only (Size mode is held at
+  Octaves). Copied motifs move by scale degree, so they stay in key.
 - **Free**: continuous pitch, no quantising.
 - **Harmonise** (button, In key only): anchors prefer consonant intervals (3rds, 5ths, 6ths,
   octaves) with whatever is sounding at that moment. [Decided]
@@ -162,9 +166,13 @@ suggests a random one (e.g. "Glassfin", "Moanback"). [Decided: names needed for 
   come later and slot in between ranges and the roll. [Later]
 
 ### 5.6 Output
-- Stereo, 48 kHz, **24-bit WAV** (16-bit option). [Proposed]
-- **Level** control and a soft safety limiter on the master so many creatures at once can't clip.
-  No normalising, because long renders are streamed to disk. [Proposed]
+- Stereo, 48 kHz, **24-bit WAV** (16-bit option, with seeded dither so it stays repeatable). [Proposed]
+- **Level** control and a lookahead peak limiter on the master (ceiling -1 dBFS, 2.7 ms lookahead,
+  300 ms recovery) so many creatures at once can't clip. Below the ceiling it leaves the sound
+  exactly as it is. No normalising, because long renders are streamed to disk. [Proposed]
+- **Calibrated Level.** Each species is calibrated so a creature at Level 0 calls at about
+  -20 dBFS RMS. Without it, Dolphin through a tube is about 30 dB louder than bare Dolphin, and
+  Level would mean something different per species. `tools/calibrate.js` measures it.
 - **Fade in / fade out** lengths for the start and end of the piece. [Proposed]
 
 ## 6. Seeds and repeatability
@@ -213,14 +221,23 @@ score ─► per creature: engine (Throat | Dolphin) ─► [mouth-tube] ─► 
 | mouth-tube | `bytebent/mouth-tube` `reference/mouth-tube.js` | `new MouthTube(sr)`, `setParam`, `process(inL, inR, outL, outR, n)` |
 
 - One engine instance per creature, mono mode. Dolphin's stereo is summed to mono before the
-  tube and the panner; the tube runs one channel only. [Proposed]
-- Parameter changes inside a unit (Morph, Evolve, contours) are sent once per 32-sample block,
-  which the engines already smooth.
+  tube and the panner; the tube runs one channel only. [Decided]
+- **Pitch**: the engine holds one note and Krill moves it every 32-sample block with Throat's
+  Transpose + Detune (±25 st) or Dolphin's bend (range set to ±48 st), so contours, legato glides
+  and free-mode cents are exact. A line that goes further re-bases onto a new held note in the
+  same block, with no jump. Engine Glide stays at 0.
+- **Headroom**: Throat and Dolphin run at -12 dB and the tube's input at -24 dB and its Output at
+  -18 dB, with the same amount added back in the voice. Dolphin and mouth-tube clamp their output
+  at ±1, and the tube can add 20 dB or more of peak gain on clicks; this keeps every engine at
+  least 6 dB clear of its clamp (tested for the examples). The voice reports the engine peak.
+- Parameter changes inside a unit (Morph) are sent once per 32-sample block, which the engines
+  already smooth.
 - A creature that is silent and whose tail has decayed is skipped, so resting creatures cost
   almost nothing.
-- Measured in Node at 48 kHz: one Throat voice ≈ 4% of a core, one Dolphin ≈ 3%, Throat through
-  a tube ≈ 12%. Six tubed creatures all calling at once render at about real time; normal ponds
-  with rests render several times faster.
+- Measured with `tools/bench.js` (48 kHz, Node): while calling, a bare Throat costs about 26 ms
+  per second of audio, bare Dolphin 31 ms, Throat + tube 62 ms, Dolphin + tube 88 ms. Asleep, a
+  creature costs nothing. Six tubed creatures all calling at once would still render at about
+  twice real time; the examples alone render 30–290× real time.
 
 ### 7.2 Where it renders
 [Decided]

@@ -31,7 +31,7 @@ test('every value stays inside the creature\'s ranges', () => {
   for (const c of EXAMPLES) for (const pitch of [DMIN, FREE]) {
     const sc = R.soloScore(c, { seed: 5, seconds: 1800, pitch });
     const cc = R.compile(c, pitch);
-    const snapped = new Set(['dolphin.rate', 'dolphin.freerate', 'dolphin.wtranspose']);
+    const snapped = new Set(['dolphin.rate', 'dolphin.freerate', 'dolphin.wtranspose', 'dolphin.sweep']);
     const [u0, u1] = c.call.units, [l0, l1] = c.call.unitLength;
     let prevEnd = null;
     for (const call of sc.calls) {
@@ -89,6 +89,8 @@ test('in key: dolphin pulse pitch and whistle transpose land on the scale', () =
     const r = u.v0[cc.iRate], wt = u.v0[cc.iWt];
     if (R.mtof(u.note) * Math.pow(2, r) > 30) { pitched++; assert.ok(DMIN.inScale(Math.round((u.note + 12 * r) * 1e3) / 1e3), 'pulse ' + u.note + ' ' + r); }   // rates are float32
     assert.ok(DMIN.inScale(u.note + wt), 'whistle ' + u.note + ' ' + wt);
+    const sw = u.v0[cc.iSweep];
+    assert.ok(DMIN.inScale(Math.round((u.note + wt + 12 * sw) * 1e3) / 1e3), 'sweep end ' + sw);
   });
   assert.ok(pitched > 50);
 });
@@ -102,6 +104,9 @@ test('locked parameters are never rolled; snapping only adds what it can change'
   assert.ok(g.locked.some(l => l.key === 'dolphin.coda'));
   const f = R.compile(byName('Glassfin'), FREE);
   for (const k of f.vKey) assert.ok(!f.locked.some(l => l.key === k));
+  const sz = byName('Glassfin'); sz.ranges['dolphin.sizemode'] = [0, 1];
+  assert.ok(R.compile(sz, DMIN).locked.some(l => l.key === 'dolphin.sizemode' && l.value === 0), 'size in octaves in key');
+  assert.ok(R.compile(sz, FREE).vKey.includes('dolphin.sizemode'), 'free mode keeps continuous size');
   const w = R.compile(byName('Wicklace'), DMIN);
   assert.ok(!w.vKey.some(k => k.startsWith('mouth.')), 'no mouth, no mouth parameters');
   assert.ok(!w.fixed.some(k => k.engine === 'mouth'));

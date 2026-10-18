@@ -24,9 +24,13 @@
   // ---------- engine parameter tables ----------
   // use: 'range' = the creature gives it a range (locked = min equal to max)
   //      'fixed' = Krill sets it once to `value` and never touches it again
-  //      'krill' = Krill drives it from the score (pitch, envelope, glide), not from ranges
+  //      'krill' = Krill drives it from the score (pitch, envelope, glide), not from ranges. Pitch: the
+  //                voice holds one note and moves it with Throat's Transpose + Detune or Dolphin's
+  //                bend, so contours and free-mode cents are exact
   // scale: how a 0–1 position maps into a range: 'lin', 'log' (ratios) or 'sq' (fine near the low end)
   // step: 1 for whole-number (menu or switch) parameters
+  // headroom: output gains Krill turns down so the engines' own ±1 output clamps never touch the
+  //           sound; the voice adds the same amount back afterwards (see voice.js)
   const R = 'range', F = 'fixed', K = 'krill';
   function P(id, label, min, max, def, use, opt) {
     const o = { id, label, min, max, def, use, scale: 'lin', step: 0, unit: '', value: def };
@@ -45,7 +49,7 @@
       P('jitter', 'Jitter', 0, 1, 0, R),
       P('shimmer', 'Shimmer', 0, 1, 0, R),
       P('source', 'Source', 0, 1, 0, R, { step: 1, options: ['Flow', 'Derivative'] }),
-      P('transpose', 'Transpose', -24, 24, 0, F, { value: 0 }),
+      P('transpose', 'Transpose', -24, 24, 0, K),
       P('detune', 'Detune', -100, 100, 0, K),
       P('mode', 'Mode', 0, 1, 0, F, { value: 0 }),
       P('glide', 'Glide', 0, 2, 0.06, K),
@@ -53,7 +57,7 @@
       P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
       P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
       P('release', 'Release', 0.001, 8, 0.25, K),
-      P('volume', 'Volume', -48, 6, -6, F, { value: 0 }),
+      P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
     ],
     dolphin: [
       P('rate', 'Rate', -6, 2, -2, R, { unit: 'oct' }),
@@ -86,12 +90,12 @@
       P('glide', 'Glide', 0, 2, 0.06, K),
       P('transpose', 'Transpose', -24, 24, 0, F, { step: 1, value: 0 }),
       P('detune', 'Detune', -100, 100, 0, K),
-      P('bendrange', 'Bend range', 2, 48, 12, F, { step: 1, value: 12 }),
+      P('bendrange', 'Bend range', 2, 48, 12, F, { step: 1, value: 48 }),
       P('attack', 'Attack', 0.001, 5, 0.01, K),
       P('decay', 'Decay', 0.001, 5, 0.3, F, { value: 0.3 }),
       P('sustain', 'Sustain', 0, 1, 0.8, F, { value: 1 }),
       P('release', 'Release', 0.001, 8, 0.3, K),
-      P('volume', 'Volume', -48, 6, -6, F, { value: 0 }),
+      P('volume', 'Volume', -48, 6, -6, F, { value: -12, headroom: true }),
     ],
     mouth: [
       P('tongueX', 'Tongue front–back', 0, 1, 0.55, R),
@@ -106,7 +110,7 @@
       P('spread', 'Spread', 0, 1, 0, F, { value: 0 }),
       P('radiation', 'Radiation', 0, 1, 1, F, { value: 1 }),
       P('mix', 'Mix', 0, 1, 1, F, { value: 1 }),
-      P('output', 'Output', -24, 12, 0, F, { value: 0 }),
+      P('output', 'Output', -24, 12, 0, F, { value: -18, headroom: true }),
     ],
   };
   // Dolphin LFOs: all four stay off (target None); Krill moves parameters itself
