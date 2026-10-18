@@ -3016,7 +3016,7 @@ select.field{padding:0 4px}
     // an answer to a heard motif: a changed copy with Mimicry's odds, otherwise a call of its own
     answer(t, heard, ctx) {
       const cc = this.cc, rng = this.rng;
-      if (heard && rng.chance(cc.mimicry)) {
+      if (heard && rng.chance(ctx && ctx.copyMore ? cc.mimicry + (1 - cc.mimicry) * ctx.copyMore : cc.mimicry)) {   // pond chaos copies more
         return realise(cc, mutate(heard, Math.max(0.15, cc.sigVariation), rng, cc.units[1]), t, ctx, rng, 'copy');
       }
       return this.call(t, ctx);
@@ -3470,6 +3470,7 @@ select.field{padding:0 4px}
     { path: 'talk.overlap', kind: 'num', min: 0, max: 1, def: 0.2 },
     { path: 'talk.response', kind: 'range', min: 0.05, max: 20, def: [0.3, 2.5] },
     { path: 'talk.eraLength', kind: 'num', min: 10, max: 1800, def: 120 },
+    { path: 'talk.chaos', kind: 'num', min: 0, max: 1, def: 0 },
     { path: 'space.width', kind: 'num', min: 0, max: 1, def: 0.8 },
     { path: 'output.minutes', kind: 'num', min: 0.1, max: 600, def: 20 },
     { path: 'output.bits', kind: 'enum', options: [16, 24], def: 24 },
@@ -3589,6 +3590,10 @@ select.field{padding:0 4px}
  *   ignore     a lane set to ignore others is outside the conversation: it starts whenever its
  *              rest is over (odds: Talkative), never waits for the floor or answers, and its
  *              calls don't hold the floor, aren't answered and aren't remembered.
+ *   chaos      (pond Talk, 0 … 1) more creatures answer each call, chains run longer, answers
+ *              bunch together and over each other, more of them copy, recalls are likelier.
+ *              It only changes odds and times of the draws already made, so 0 is the pond as it
+ *              always was, bit for bit.
  *   loudness   each call's loudness is drawn from the lane's range [low, high] dB (both ≤ 0).
  *   streams    each slot's decisions and sounds come from its own stream (seed, slot, re-rolls),
  *              so re-rolling a slot changes that creature; the others only shift where they react.
@@ -3650,7 +3655,8 @@ select.field{padding:0 4px}
     const pitch = S.makePitch(pond.pitch);
     const seconds = opts.seconds > 0 ? opts.seconds : pond.output.minutes * 60;
     const seed = pond.seed >>> 0;
-    const overlap = pond.talk.overlap, resp = pond.talk.response;
+    const overlap = pond.talk.overlap, resp = pond.talk.response, chaos = pond.talk.chaos || 0;
+    const loosen = p => p + (1 - p) * chaos;          // chaos pushes an odds towards 1
     const harmonise = !!pond.pitch.harmonise && !pitch.free;
     const era = eraWalk(seed, seconds, pond.talk.eraLength, !pitch.free);
 
@@ -3711,22 +3717,24 @@ select.field{padding:0 4px}
       if (call.end > floorUntil) floorUntil = call.end;
       // who answers this one?
       if (info.depth >= MAX_DEPTH) return;
-      const decay = Math.pow(CHAIN, info.depth);
+      const decay = Math.pow(CHAIN, info.depth * (1 - 0.5 * chaos));
       const cand = [];
       for (const o of slots) {
         if ((o === s && !solo) || o.ignore) continue;
-        if (o.rng.chance(o.cc.responsive * decay)) cand.push({ o, t: call.end + gap() });
+        const p = o.cc.responsive * decay;
+        if (o.rng.chance(chaos ? Math.min(1, p * (1 + 2 * chaos)) : p)) cand.push({ o, t: call.end + gap() * (1 - 0.5 * chaos) });
       }
       if (!cand.length) return;
       cand.sort((a, b) => a.t - b.t);
+      if (chaos) for (const c of cand) c.t = cand[0].t + (c.t - cand[0].t) * (1 - 0.85 * chaos);   // bunch the answers together
       cand.forEach((c, k) => {
-        if (k > 0 && !c.o.rng.chance(overlap)) return;
+        if (k > 0 && !c.o.rng.chance(chaos ? loosen(overlap) : overlap)) return;
         pending.push({ s: c.o, t: c.t, heard: call.motif, depth: info.depth + 1, of: idx, from: s.i, lineage: call.lineage, callerHome: s.home });
       });
     }
 
     function ctxFor(s, t) {
-      return { harmonise, sounding: harmonise ? soundingAt(active, t, s.i) : null, register: era.at(t).register };
+      return { harmonise, sounding: harmonise ? soundingAt(active, t, s.i) : null, register: era.at(t).register, copyMore: 0.6 * chaos };
     }
 
     while (true) {
@@ -3742,7 +3750,7 @@ select.field{padding:0 4px}
         pending.splice(pending.indexOf(ev), 1);
         const s = ev.s, t = ev.t;
         if (s.busyUntil > t) continue;                 // still calling
-        if (floorUntil > t && !s.rng.chance(overlap)) continue;   // someone else took the floor
+        if (floorUntil > t && !s.rng.chance(chaos ? loosen(overlap) : overlap)) continue;   // someone else took the floor
         const call = s.caller.answer(t, ev.heard, ctxFor(s, t));
         // widen the gap between caller and answerer (both at the same spot: no lean)
         const lean = solo ? 0 : Math.max(-1, Math.min(1, (s.home - ev.callerHome) * LEAN));
@@ -3761,7 +3769,7 @@ select.field{padding:0 4px}
         if (!s.rng.chance(overlap * s.cc.talkative)) { s.next = floorUntil + gap(); continue; }
       } else if (!forced && !s.rng.chance(s.cc.talkative)) { s.next = t + restOf(s, t) * 0.5; continue; }
       let call;
-      if (memory.length && s.rng.chance(s.cc.mimicry * RECALL)) {
+      if (memory.length && s.rng.chance(chaos ? Math.min(1, s.cc.mimicry * RECALL * (1 + 2 * chaos)) : s.cc.mimicry * RECALL)) {
         const k = s.rng.weighted(memory.map(m => m.weight), memory.length);
         call = s.caller.answer(t, memory[k].motif, ctxFor(s, t));
         place(s, call, { depth: 0, lineage: memory[k].lineage });
@@ -4429,7 +4437,7 @@ class KrillPlayer extends AudioWorkletProcessor {
 }
 registerProcessor('krill-player', KrillPlayer);
 </script>
-<script>window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pond","seed":7,"slots":[{"creature":{"format":"krill-creature","version":2,"name":"Glassfin","seed":9071,"source":"dolphin","body":"none","pitch":{"low":40,"high":60,"contour":[-3,7]},"ranges":{"dolphin.rate":[-3,-1],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,0],"dolphin.coda":[0,0],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.3],"dolphin.ornament":[0,0],"dolphin.clicktone":[-0.5,0.5],"dolphin.clickwidth":[0.1,0.1],"dolphin.ring":[0,0.3],"dolphin.vowel":[0,0.5],"dolphin.shape":[1,4],"dolphin.sweep":[-0.8,1.2],"dolphin.time":[0.4,1.8],"dolphin.wtranspose":[0,0],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0.75,1],"dolphin.biphon":[0,0.35],"dolphin.size":[0.25,0.5],"dolphin.sizemode":[0,0]},"morph":0.3,"call":{"units":[1,4],"unitLength":[0.4,2.5],"gap":[0.05,0.4],"legato":false,"evolve":"arc","evolveAmount":0.4,"rest":[4,30],"attack":[0.02,0.2],"release":[0.3,1.5]},"signature":{"amount":0.5,"variation":0.2},"manner":{"talkative":0.4,"responsive":0.7,"mimicry":0.5,"pan":-0.4,"wander":0.3,"level":-6},"filter":{"on":false,"cutoff":8000}},"rerolls":0,"ignore":false,"loudness":[-6,0]},{"creature":{"format":"krill-creature","version":2,"name":"Siltclicker","seed":43841,"source":"dolphin","body":"tube","pitch":{"low":57,"high":63,"contour":[-2,2]},"ranges":{"throat.voicing":[0.85,1],"throat.breathy":[0,0.4],"throat.tense":[0,0.3],"throat.creaky":[0,0.2],"throat.thin":[0,0.3],"throat.growl":[0,0.1],"throat.jitter":[0.05,0.2],"throat.shimmer":[0.05,0.2],"throat.source":[0,0],"dolphin.rate":[-5.784,-2.7920000000000003],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,0],"dolphin.coda":[0,0],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.3],"dolphin.ornament":[0,0],"dolphin.clicktone":[-0.5,0.5],"dolphin.clickwidth":[0.05,0.49319999999999997],"dolphin.ring":[0,0.3],"dolphin.vowel":[0,1],"dolphin.shape":[1,4],"dolphin.sweep":[-1,1.5],"dolphin.time":[0.3,1.5],"dolphin.wtranspose":[-12,-12],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0.10200000000000001,0.427],"dolphin.biphon":[0.485,0.989],"dolphin.size":[0.745,0.978],"dolphin.sizemode":[0,1],"tube.tongueX":[0.2,0.8],"tube.tongueY":[0.3,0.9],"tube.tip":[0,0],"tube.jaw":[0.2,0.6],"tube.lips":[0.4,0.9],"tube.round":[0,0.5],"tube.nasal":[0,0.15],"tube.length":[14,20],"tube.damping":[0.4,0.6]},"morph":0.2,"call":{"units":[5,9],"unitLength":[0.02,0.18],"gap":[0.05,0.5],"legato":false,"evolve":"wander","evolveAmount":0.3,"rest":[3,20],"attack":[0.02,0.3],"release":[0.2,1.5]},"signature":{"amount":0.3,"variation":0.2},"manner":{"talkative":0.5,"responsive":0.5,"mimicry":0.3,"pan":0,"wander":0.2,"level":-3.302},"filter":{"on":false,"cutoff":8000}},"rerolls":0,"ignore":false,"loudness":[-9,0]},{"creature":{"format":"krill-creature","version":2,"name":"Ticker","seed":1717,"source":"dolphin","body":"tube","pitch":{"low":48,"high":72,"contour":[0,0]},"ranges":{"dolphin.rate":[-5,-2],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,3],"dolphin.coda":[0,8],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.5],"dolphin.ornament":[0,0],"dolphin.clicktone":[-1,1],"dolphin.clickwidth":[0.1,0.1],"dolphin.ring":[0.1,0.6],"dolphin.vowel":[0,0.5],"dolphin.shape":[1,4],"dolphin.sweep":[-1,1.5],"dolphin.time":[0.3,1.5],"dolphin.wtranspose":[0,0],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0,0.12],"dolphin.biphon":[0,0.3],"dolphin.size":[0.2,0.6],"dolphin.sizemode":[0,0],"tube.tongueX":[0,1],"tube.tongueY":[0,1],"tube.tip":[0,0],"tube.jaw":[0.2,0.6],"tube.lips":[0.2,1],"tube.round":[0,0.5],"tube.nasal":[0,0.15],"tube.length":[9,18],"tube.damping":[0.4,0.6]},"morph":0.5,"call":{"units":[5,12],"unitLength":[0.08,0.5],"gap":[0.02,0.25],"legato":false,"evolve":"rise","evolveAmount":0.6,"rest":[2,15],"attack":[0.005,0.03],"release":[0.05,0.3]},"signature":{"amount":0.2,"variation":0.4},"manner":{"talkative":0.6,"responsive":0.6,"mimicry":0.6,"pan":0.5,"wander":0.4,"level":-9},"filter":{"on":false,"cutoff":8000}},"rerolls":0,"ignore":false,"loudness":[-12,0]},{"creature":{"format":"krill-creature","version":2,"name":"Wicklace","seed":50,"source":"throat","body":"none","pitch":{"low":70,"high":96,"contour":[-5,5]},"ranges":{"throat.voicing":[0.85,1],"throat.breathy":[0,0.2],"throat.tense":[0.4,0.9],"throat.creaky":[0,0.2],"throat.thin":[0.5,1],"throat.growl":[0,0.1],"throat.jitter":[0.1,0.5],"throat.shimmer":[0.1,0.4],"throat.source":[0,1]},"morph":0.2,"call":{"units":[3,9],"unitLength":[0.05,0.4],"gap":[0,0.15],"legato":false,"evolve":"wander","evolveAmount":0.5,"rest":[3,25],"attack":[0.005,0.05],"release":[0.03,0.4]},"signature":{"amount":0.4,"variation":0.25},"manner":{"talkative":0.5,"responsive":0.5,"mimicry":0.4,"pan":-0.7,"wander":0.5,"level":-5},"filter":{"on":false,"cutoff":8000}},"rerolls":0,"ignore":true,"loudness":[-12,0]},null,null],"pitch":{"mode":"key","root":"D","scale":"minor","harmonise":false},"talk":{"overlap":0.2,"response":[0.3,2.5],"eraLength":120},"space":{"width":0.8},"output":{"minutes":20,"bits":24,"level":0,"fadeIn":5,"fadeOut":20}};
+<script>window.KRILL_POND_EXAMPLE = {"format":"krill-pond","version":1,"name":"First pond","seed":7,"slots":[{"creature":{"format":"krill-creature","version":2,"name":"Glassfin","seed":9071,"source":"dolphin","body":"none","pitch":{"low":40,"high":60,"contour":[-3,7]},"ranges":{"dolphin.rate":[-3,-1],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,0],"dolphin.coda":[0,0],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.3],"dolphin.ornament":[0,0],"dolphin.clicktone":[-0.5,0.5],"dolphin.clickwidth":[0.1,0.1],"dolphin.ring":[0,0.3],"dolphin.vowel":[0,0.5],"dolphin.shape":[1,4],"dolphin.sweep":[-0.8,1.2],"dolphin.time":[0.4,1.8],"dolphin.wtranspose":[0,0],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0.75,1],"dolphin.biphon":[0,0.35],"dolphin.size":[0.25,0.5],"dolphin.sizemode":[0,0]},"morph":0.3,"call":{"units":[1,4],"unitLength":[0.4,2.5],"gap":[0.05,0.4],"legato":false,"evolve":"arc","evolveAmount":0.4,"rest":[4,30],"attack":[0.02,0.2],"release":[0.3,1.5]},"signature":{"amount":0.5,"variation":0.2},"manner":{"talkative":0.4,"responsive":0.7,"mimicry":0.5,"pan":-0.4,"wander":0.3,"level":-6},"filter":{"on":false,"cutoff":8000}},"rerolls":0,"ignore":false,"loudness":[-6,0]},{"creature":{"format":"krill-creature","version":2,"name":"Siltclicker","seed":43841,"source":"dolphin","body":"tube","pitch":{"low":57,"high":63,"contour":[-2,2]},"ranges":{"throat.voicing":[0.85,1],"throat.breathy":[0,0.4],"throat.tense":[0,0.3],"throat.creaky":[0,0.2],"throat.thin":[0,0.3],"throat.growl":[0,0.1],"throat.jitter":[0.05,0.2],"throat.shimmer":[0.05,0.2],"throat.source":[0,0],"dolphin.rate":[-5.784,-2.7920000000000003],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,0],"dolphin.coda":[0,0],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.3],"dolphin.ornament":[0,0],"dolphin.clicktone":[-0.5,0.5],"dolphin.clickwidth":[0.05,0.49319999999999997],"dolphin.ring":[0,0.3],"dolphin.vowel":[0,1],"dolphin.shape":[1,4],"dolphin.sweep":[-1,1.5],"dolphin.time":[0.3,1.5],"dolphin.wtranspose":[-12,-12],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0.10200000000000001,0.427],"dolphin.biphon":[0.485,0.989],"dolphin.size":[0.745,0.978],"dolphin.sizemode":[0,1],"tube.tongueX":[0.2,0.8],"tube.tongueY":[0.3,0.9],"tube.tip":[0,0],"tube.jaw":[0.2,0.6],"tube.lips":[0.4,0.9],"tube.round":[0,0.5],"tube.nasal":[0,0.15],"tube.length":[14,20],"tube.damping":[0.4,0.6]},"morph":0.2,"call":{"units":[5,9],"unitLength":[0.02,0.18],"gap":[0.05,0.5],"legato":false,"evolve":"wander","evolveAmount":0.3,"rest":[3,20],"attack":[0.02,0.3],"release":[0.2,1.5]},"signature":{"amount":0.3,"variation":0.2},"manner":{"talkative":0.5,"responsive":0.5,"mimicry":0.3,"pan":0,"wander":0.2,"level":-3.302},"filter":{"on":false,"cutoff":8000}},"rerolls":0,"ignore":false,"loudness":[-9,0]},{"creature":{"format":"krill-creature","version":2,"name":"Ticker","seed":1717,"source":"dolphin","body":"tube","pitch":{"low":48,"high":72,"contour":[0,0]},"ranges":{"dolphin.rate":[-5,-2],"dolphin.keytrack":[1,1],"dolphin.freerate":[13,13],"dolphin.pattern":[0,3],"dolphin.coda":[0,8],"dolphin.jitter":[0,0.2],"dolphin.rubato":[0,0.5],"dolphin.ornament":[0,0],"dolphin.clicktone":[-1,1],"dolphin.clickwidth":[0.1,0.1],"dolphin.ring":[0.1,0.6],"dolphin.vowel":[0,0.5],"dolphin.shape":[1,4],"dolphin.sweep":[-1,1.5],"dolphin.time":[0.3,1.5],"dolphin.wtranspose":[0,0],"dolphin.harmonics":[1,2],"dolphin.harmlevel":[-18,-8],"dolphin.register":[0,0.12],"dolphin.biphon":[0,0.3],"dolphin.size":[0.2,0.6],"dolphin.sizemode":[0,0],"tube.tongueX":[0,1],"tube.tongueY":[0,1],"tube.tip":[0,0],"tube.jaw":[0.2,0.6],"tube.lips":[0.2,1],"tube.round":[0,0.5],"tube.nasal":[0,0.15],"tube.length":[9,18],"tube.damping":[0.4,0.6]},"morph":0.5,"call":{"units":[5,12],"unitLength":[0.08,0.5],"gap":[0.02,0.25],"legato":false,"evolve":"rise","evolveAmount":0.6,"rest":[2,15],"attack":[0.005,0.03],"release":[0.05,0.3]},"signature":{"amount":0.2,"variation":0.4},"manner":{"talkative":0.6,"responsive":0.6,"mimicry":0.6,"pan":0.5,"wander":0.4,"level":-9},"filter":{"on":false,"cutoff":8000}},"rerolls":0,"ignore":false,"loudness":[-12,0]},{"creature":{"format":"krill-creature","version":2,"name":"Wicklace","seed":50,"source":"throat","body":"none","pitch":{"low":70,"high":96,"contour":[-5,5]},"ranges":{"throat.voicing":[0.85,1],"throat.breathy":[0,0.2],"throat.tense":[0.4,0.9],"throat.creaky":[0,0.2],"throat.thin":[0.5,1],"throat.growl":[0,0.1],"throat.jitter":[0.1,0.5],"throat.shimmer":[0.1,0.4],"throat.source":[0,1]},"morph":0.2,"call":{"units":[3,9],"unitLength":[0.05,0.4],"gap":[0,0.15],"legato":false,"evolve":"wander","evolveAmount":0.5,"rest":[3,25],"attack":[0.005,0.05],"release":[0.03,0.4]},"signature":{"amount":0.4,"variation":0.25},"manner":{"talkative":0.5,"responsive":0.5,"mimicry":0.4,"pan":-0.7,"wander":0.5,"level":-5},"filter":{"on":false,"cutoff":8000}},"rerolls":0,"ignore":true,"loudness":[-12,0]},null,null],"pitch":{"mode":"key","root":"D","scale":"minor","harmonise":false},"talk":{"overlap":0.2,"response":[0.3,2.5],"eraLength":120,"chaos":0},"space":{"width":0.8},"output":{"minutes":20,"bits":24,"level":0,"fadeIn":5,"fadeOut":20}};
 // ---- src/rng.js
 /*
  * krill · seeded random streams
@@ -5488,7 +5496,7 @@ registerProcessor('krill-player', KrillPlayer);
     // an answer to a heard motif: a changed copy with Mimicry's odds, otherwise a call of its own
     answer(t, heard, ctx) {
       const cc = this.cc, rng = this.rng;
-      if (heard && rng.chance(cc.mimicry)) {
+      if (heard && rng.chance(ctx && ctx.copyMore ? cc.mimicry + (1 - cc.mimicry) * ctx.copyMore : cc.mimicry)) {   // pond chaos copies more
         return realise(cc, mutate(heard, Math.max(0.15, cc.sigVariation), rng, cc.units[1]), t, ctx, rng, 'copy');
       }
       return this.call(t, ctx);
@@ -5583,6 +5591,7 @@ registerProcessor('krill-player', KrillPlayer);
     { path: 'talk.overlap', kind: 'num', min: 0, max: 1, def: 0.2 },
     { path: 'talk.response', kind: 'range', min: 0.05, max: 20, def: [0.3, 2.5] },
     { path: 'talk.eraLength', kind: 'num', min: 10, max: 1800, def: 120 },
+    { path: 'talk.chaos', kind: 'num', min: 0, max: 1, def: 0 },
     { path: 'space.width', kind: 'num', min: 0, max: 1, def: 0.8 },
     { path: 'output.minutes', kind: 'num', min: 0.1, max: 600, def: 20 },
     { path: 'output.bits', kind: 'enum', options: [16, 24], def: 24 },
@@ -5702,6 +5711,10 @@ registerProcessor('krill-player', KrillPlayer);
  *   ignore     a lane set to ignore others is outside the conversation: it starts whenever its
  *              rest is over (odds: Talkative), never waits for the floor or answers, and its
  *              calls don't hold the floor, aren't answered and aren't remembered.
+ *   chaos      (pond Talk, 0 … 1) more creatures answer each call, chains run longer, answers
+ *              bunch together and over each other, more of them copy, recalls are likelier.
+ *              It only changes odds and times of the draws already made, so 0 is the pond as it
+ *              always was, bit for bit.
  *   loudness   each call's loudness is drawn from the lane's range [low, high] dB (both ≤ 0).
  *   streams    each slot's decisions and sounds come from its own stream (seed, slot, re-rolls),
  *              so re-rolling a slot changes that creature; the others only shift where they react.
@@ -5763,7 +5776,8 @@ registerProcessor('krill-player', KrillPlayer);
     const pitch = S.makePitch(pond.pitch);
     const seconds = opts.seconds > 0 ? opts.seconds : pond.output.minutes * 60;
     const seed = pond.seed >>> 0;
-    const overlap = pond.talk.overlap, resp = pond.talk.response;
+    const overlap = pond.talk.overlap, resp = pond.talk.response, chaos = pond.talk.chaos || 0;
+    const loosen = p => p + (1 - p) * chaos;          // chaos pushes an odds towards 1
     const harmonise = !!pond.pitch.harmonise && !pitch.free;
     const era = eraWalk(seed, seconds, pond.talk.eraLength, !pitch.free);
 
@@ -5824,22 +5838,24 @@ registerProcessor('krill-player', KrillPlayer);
       if (call.end > floorUntil) floorUntil = call.end;
       // who answers this one?
       if (info.depth >= MAX_DEPTH) return;
-      const decay = Math.pow(CHAIN, info.depth);
+      const decay = Math.pow(CHAIN, info.depth * (1 - 0.5 * chaos));
       const cand = [];
       for (const o of slots) {
         if ((o === s && !solo) || o.ignore) continue;
-        if (o.rng.chance(o.cc.responsive * decay)) cand.push({ o, t: call.end + gap() });
+        const p = o.cc.responsive * decay;
+        if (o.rng.chance(chaos ? Math.min(1, p * (1 + 2 * chaos)) : p)) cand.push({ o, t: call.end + gap() * (1 - 0.5 * chaos) });
       }
       if (!cand.length) return;
       cand.sort((a, b) => a.t - b.t);
+      if (chaos) for (const c of cand) c.t = cand[0].t + (c.t - cand[0].t) * (1 - 0.85 * chaos);   // bunch the answers together
       cand.forEach((c, k) => {
-        if (k > 0 && !c.o.rng.chance(overlap)) return;
+        if (k > 0 && !c.o.rng.chance(chaos ? loosen(overlap) : overlap)) return;
         pending.push({ s: c.o, t: c.t, heard: call.motif, depth: info.depth + 1, of: idx, from: s.i, lineage: call.lineage, callerHome: s.home });
       });
     }
 
     function ctxFor(s, t) {
-      return { harmonise, sounding: harmonise ? soundingAt(active, t, s.i) : null, register: era.at(t).register };
+      return { harmonise, sounding: harmonise ? soundingAt(active, t, s.i) : null, register: era.at(t).register, copyMore: 0.6 * chaos };
     }
 
     while (true) {
@@ -5855,7 +5871,7 @@ registerProcessor('krill-player', KrillPlayer);
         pending.splice(pending.indexOf(ev), 1);
         const s = ev.s, t = ev.t;
         if (s.busyUntil > t) continue;                 // still calling
-        if (floorUntil > t && !s.rng.chance(overlap)) continue;   // someone else took the floor
+        if (floorUntil > t && !s.rng.chance(chaos ? loosen(overlap) : overlap)) continue;   // someone else took the floor
         const call = s.caller.answer(t, ev.heard, ctxFor(s, t));
         // widen the gap between caller and answerer (both at the same spot: no lean)
         const lean = solo ? 0 : Math.max(-1, Math.min(1, (s.home - ev.callerHome) * LEAN));
@@ -5874,7 +5890,7 @@ registerProcessor('krill-player', KrillPlayer);
         if (!s.rng.chance(overlap * s.cc.talkative)) { s.next = floorUntil + gap(); continue; }
       } else if (!forced && !s.rng.chance(s.cc.talkative)) { s.next = t + restOf(s, t) * 0.5; continue; }
       let call;
-      if (memory.length && s.rng.chance(s.cc.mimicry * RECALL)) {
+      if (memory.length && s.rng.chance(chaos ? Math.min(1, s.cc.mimicry * RECALL * (1 + 2 * chaos)) : s.cc.mimicry * RECALL)) {
         const k = s.rng.weighted(memory.map(m => m.weight), memory.length);
         call = s.caller.answer(t, memory[k].motif, ctxFor(s, t));
         place(s, call, { depth: 0, lineage: memory[k].lineage });
@@ -6558,7 +6574,8 @@ registerProcessor('krill-player', KrillPlayer);
   const K = window.Krill, PD = K.pond, CD = K.conductor, SC = K.scene, kit = K.kit, el = kit.el;
   const POND_STORE = 'krill.pond.v1';
   const SR = 48000, SCOPE = 1024, SHOW = 512, ENDLESS_H = 6;
-  const STYLE_STORE = 'krill.vis.scope', STYLES = [['ring', 'Ring'], ['line', 'Line'], ['xy', 'X/Y']];
+  const STYLE_STORE = 'krill.vis.scope', STYLES = [['ring', 'Ring'], ['shapes', 'Shapes'], ['loop', 'Loop'], ['phase', 'Phase'], ['knot', 'Knot']];
+  const STYLE_TITLES = { ring: 'The waveform bends a circle', shapes: 'The waveform bends each lane\'s own shape', loop: 'X/Y: the voice against itself a quarter period later', phase: 'X/Y: the voice against how fast it changes', knot: 'X/Y: the voice against a steady tone at 3:2 of its pitch' };
   const HEX = ['#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc'];
 
   const statusEl = document.getElementById('status');
@@ -6725,17 +6742,19 @@ registerProcessor('krill-player', KrillPlayer);
       const [x, y] = P(w), r0 = R * 0.085 * w.size;
       const gain = rms > 0 ? Math.min(14, 0.32 / Math.max(rms, 0.01)) : 0;
       g.strokeStyle = HEX[w.slot];
-      const path = style === 'xy' ? xyPath(g, all, x, y, r0, gain, w.slot) : style === 'line' ? linePath(g, s, x, y, r0, gain) : ringPath(g, s, x, y, r0, gain);
+      const path = style === 'loop' ? loopPath(g, all, x, y, r0, gain, w.slot) : style === 'phase' ? phasePath(g, all, x, y, r0)
+        : style === 'knot' ? knotPath(g, all, x, y, r0, gain, w.slot) : style === 'shapes' ? shapePath(g, all, x, y, r0, gain, w.slot) : ringPath(g, s, x, y, r0, gain);
       for (const [lw, a] of [[5 * d, 0.18], [1.6 * d, 1]]) { g.globalAlpha = alpha * a; g.lineWidth = lw; g.lineJoin = 'round'; path(); g.stroke(); }
       g.globalAlpha = alpha * 0.55; g.fillStyle = HEX[w.slot];
-      g.fillText(w.name, x, y + r0 * 2.5 + 8 * d);
+      g.font = 'italic ' + (14 * d) + 'px "Times New Roman", Times, serif';
+      g.fillText(w.name, x, y + r0 * 2.5 + 9 * d);
     }
     g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
   }
   // ---------- scope styles ----------
   // each returns a function that traces the path (drawn twice: glow, then line)
   let style = 'ring';
-  try { const v = localStorage.getItem(STYLE_STORE); if (STYLES.some(([k]) => k === v)) style = v; } catch (e) { /* storage unavailable */ }
+  try { let v = localStorage.getItem(STYLE_STORE); if (v === 'xy') v = 'loop'; if (STYLES.some(([k]) => k === v)) style = v; } catch (e) { /* storage unavailable */ }
   const upZero = (s, N) => { for (let i = 1; i < N / 2; i++) if (s[i - 1] < 0 && s[i] >= 0) return i; return 0; };   // holds the shape still
   function ringPath(g, s, x, y, r0, gain) {
     const k0 = upZero(s, s.length), M = s.length - k0;
@@ -6749,14 +6768,28 @@ registerProcessor('krill-player', KrillPlayer);
       }
     };
   }
-  function linePath(g, s, x, y, r0, gain) {
-    const k0 = upZero(s, s.length), M = s.length - k0, half = r0 * 2.2;
+  // Shapes: like Ring, but each lane bends its own outline (straight edges, traced evenly)
+  const poly = (n, rot, inner) => { const v = [], m = inner ? 2 * n : n; for (let i = 0; i < m; i++) { const a = rot + i * Math.PI * 2 / m, r = inner && i % 2 ? inner : 1; v.push([Math.cos(a), Math.sin(a)]); v[i][0] *= r; v[i][1] *= r; } return v; };
+  const UP = -Math.PI / 2;
+  const SHAPES = [poly(3, UP), poly(4, Math.PI / 4), poly(5, UP), poly(5, UP, 0.48), poly(6, 0), poly(8, UP, 0.62)]
+    .map(v => { const len = [], n = v.length; let tot = 0; for (let i = 0; i < n; i++) { const a = v[i], b = v[(i + 1) % n]; tot += Math.hypot(b[0] - a[0], b[1] - a[1]); len.push(tot); } return { v, len, tot }; });
+  function onShape(sh, u, out) {                           // the point a share u of the way round
+    const d = u * sh.tot, n = sh.v.length;
+    let i = 0; while (i < n - 1 && sh.len[i] < d) i++;
+    const a = sh.v[i], b = sh.v[(i + 1) % n], l0 = i ? sh.len[i - 1] : 0, f = (d - l0) / (sh.len[i] - l0 || 1);
+    out[0] = a[0] + (b[0] - a[0]) * f; out[1] = a[1] + (b[1] - a[1]) * f;
+  }
+  function shapePath(g, s, x, y, r0, gain, slot) {
+    const sh = SHAPES[slot % SHAPES.length], k0 = upZero(s, s.length), M = s.length - k0, pt = [0, 0], R1 = r0 * 1.2;
     return () => {
       g.beginPath();
-      for (let i = 0; i < M; i++) {
-        const px = x - half + 2 * half * i / (M - 1), py = y - Math.max(-1.6, Math.min(1.6, s[k0 + i] * gain)) * r0;
+      for (let i = 0; i <= M; i++) {
+        onShape(sh, (i % M) / M, pt);
+        const f = 1 + Math.tanh(s[k0 + (i % M)] * gain * 0.6) * 0.32;   // finer and gentler than Ring, so the shape reads
+        const px = x + pt[0] * R1 * f, py = y + pt[1] * R1 * f;
         if (i) g.lineTo(px, py); else g.moveTo(px, py);
       }
+      g.closePath();
     };
   }
   // X/Y: the voice against itself a quarter of its pitch period later, so a pure tone draws a
@@ -6776,7 +6809,7 @@ registerProcessor('krill-player', KrillPlayer);
     }
     return best > 0.35 ? bestLag * 2 : 0;
   }
-  function xyPath(g, s, x, y, r0, gain, slot) {
+  function loopPath(g, s, x, y, r0, gain, slot) {
     const p = period(s), want = p ? p / 4 : 6;
     const tau = Math.max(2, Math.round(taus[slot] = taus[slot] ? taus[slot] + (want - taus[slot]) * 0.35 : want));
     const N = s.length, k = 1.4 * gain, A = 2.2 * r0;    // soft limit: loud peaks round off, never flatten
@@ -6788,8 +6821,40 @@ registerProcessor('krill-player', KrillPlayer);
       }
     };
   }
-  kit.Seg(document.getElementById('scopeBox'), { options: STYLES, get: () => style,
+  // Phase: the voice against how fast it's changing, each axis scaled by its own level
+  function phasePath(g, s, x, y, r0) {
+    const N = s.length; let ex = 0, ed = 0;
+    for (let i = 1; i < N; i++) { ex += s[i] * s[i]; const dd = s[i] - s[i - 1]; ed += dd * dd; }
+    const kx = 0.45 / Math.max(1e-4, Math.sqrt(ex / N)), kd = 0.45 / Math.max(1e-5, Math.sqrt(ed / N)), A = 2.2 * r0;
+    return () => {
+      g.beginPath();
+      for (let i = 1; i < N; i++) {
+        const px = x + Math.tanh(s[i] * kx) * A, py = y - Math.tanh((s[i] - s[i - 1]) * kd) * A;
+        if (i > 1) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+    };
+  }
+  // Knot: the voice against a steady tone at 3:2 of its own pitch, started at an upward zero
+  // crossing so the knot holds still; no clear pitch uses a 1 kHz tone. The tone follows the
+  // voice's envelope, so clicks flicker rather than draw a standing bar
+  const periods = {};
+  function knotPath(g, s, x, y, r0, gain, slot) {
+    const want = period(s) || 48;
+    const p = periods[slot] = periods[slot] ? periods[slot] + (want - periods[slot]) * 0.35 : want;
+    const k0 = upZero(s, s.length), N = s.length, k = 1.4 * gain, A = 2.2 * r0, w = Math.PI * 2 * 1.5 / p;
+    const env = new Float32Array(N); let e = 0, top = 1e-9;
+    for (let i = 0; i < N; i++) { const a = Math.abs(s[i]); e = a > e ? a : e * 0.992; env[i] = e; if (e > top) top = e; }
+    return () => {
+      g.beginPath();
+      for (let i = k0; i < N; i++) {
+        const px = x + Math.tanh(s[i] * k) * A, py = y - Math.sin((i - k0) * w) * A * 0.9 * (env[i] / top);
+        if (i > k0) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+    };
+  }
+  const styleSeg = kit.Seg(document.getElementById('scopeBox'), { options: STYLES, get: () => style,
     set: v => { style = v; try { localStorage.setItem(STYLE_STORE, v); } catch (e) { /* ignore */ } drawFrame(now()); } });
+  styleSeg.el.querySelectorAll('button').forEach((b, i) => { b.title = STYLE_TITLES[STYLES[i][0]]; });
 
   let frame = null;
   function loop() {

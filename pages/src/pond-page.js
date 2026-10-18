@@ -108,6 +108,7 @@
     controls.push({ show: showPitch });
     const gt = document.getElementById('g-talk');
     knob(gt, 'talk.overlap', 'Overlap', { title: '0 strict turns … 1 everyone talks freely' });
+    knob(gt, 'talk.chaos', 'Chaos', { fmt: v => Math.round(v * 100) + '%', title: 'More answers and copies at around the same time: 0 calm turns … 1 everyone piles in' });
     knob(gt, 'talk.eraLength', 'Era length', { scale: 'log', fmt: v => v >= 60 ? (+(v / 60).toFixed(1)) + ' min' : Math.round(v) + ' s', title: 'How often the pond\'s density and register drift a step' });
     const f = F['talk.response'], g = path('talk.response');
     controls.push(kit.Range(document.getElementById('g-talk-r'), { name: 'Response', min: f.min, max: f.max, scale: 'log', unit: 's', round: 0.01,

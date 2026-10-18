@@ -18,7 +18,8 @@
   const K = window.Krill, PD = K.pond, CD = K.conductor, SC = K.scene, kit = K.kit, el = kit.el;
   const POND_STORE = 'krill.pond.v1';
   const SR = 48000, SCOPE = 1024, SHOW = 512, ENDLESS_H = 6;
-  const STYLE_STORE = 'krill.vis.scope', STYLES = [['ring', 'Ring'], ['line', 'Line'], ['xy', 'X/Y']];
+  const STYLE_STORE = 'krill.vis.scope', STYLES = [['ring', 'Ring'], ['shapes', 'Shapes'], ['loop', 'Loop'], ['phase', 'Phase'], ['knot', 'Knot']];
+  const STYLE_TITLES = { ring: 'The waveform bends a circle', shapes: 'The waveform bends each lane\'s own shape', loop: 'X/Y: the voice against itself a quarter period later', phase: 'X/Y: the voice against how fast it changes', knot: 'X/Y: the voice against a steady tone at 3:2 of its pitch' };
   const HEX = ['#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc'];
 
   const statusEl = document.getElementById('status');
@@ -185,17 +186,19 @@
       const [x, y] = P(w), r0 = R * 0.085 * w.size;
       const gain = rms > 0 ? Math.min(14, 0.32 / Math.max(rms, 0.01)) : 0;
       g.strokeStyle = HEX[w.slot];
-      const path = style === 'xy' ? xyPath(g, all, x, y, r0, gain, w.slot) : style === 'line' ? linePath(g, s, x, y, r0, gain) : ringPath(g, s, x, y, r0, gain);
+      const path = style === 'loop' ? loopPath(g, all, x, y, r0, gain, w.slot) : style === 'phase' ? phasePath(g, all, x, y, r0)
+        : style === 'knot' ? knotPath(g, all, x, y, r0, gain, w.slot) : style === 'shapes' ? shapePath(g, all, x, y, r0, gain, w.slot) : ringPath(g, s, x, y, r0, gain);
       for (const [lw, a] of [[5 * d, 0.18], [1.6 * d, 1]]) { g.globalAlpha = alpha * a; g.lineWidth = lw; g.lineJoin = 'round'; path(); g.stroke(); }
       g.globalAlpha = alpha * 0.55; g.fillStyle = HEX[w.slot];
-      g.fillText(w.name, x, y + r0 * 2.5 + 8 * d);
+      g.font = 'italic ' + (14 * d) + 'px "Times New Roman", Times, serif';
+      g.fillText(w.name, x, y + r0 * 2.5 + 9 * d);
     }
     g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
   }
   // ---------- scope styles ----------
   // each returns a function that traces the path (drawn twice: glow, then line)
   let style = 'ring';
-  try { const v = localStorage.getItem(STYLE_STORE); if (STYLES.some(([k]) => k === v)) style = v; } catch (e) { /* storage unavailable */ }
+  try { let v = localStorage.getItem(STYLE_STORE); if (v === 'xy') v = 'loop'; if (STYLES.some(([k]) => k === v)) style = v; } catch (e) { /* storage unavailable */ }
   const upZero = (s, N) => { for (let i = 1; i < N / 2; i++) if (s[i - 1] < 0 && s[i] >= 0) return i; return 0; };   // holds the shape still
   function ringPath(g, s, x, y, r0, gain) {
     const k0 = upZero(s, s.length), M = s.length - k0;
@@ -209,14 +212,28 @@
       }
     };
   }
-  function linePath(g, s, x, y, r0, gain) {
-    const k0 = upZero(s, s.length), M = s.length - k0, half = r0 * 2.2;
+  // Shapes: like Ring, but each lane bends its own outline (straight edges, traced evenly)
+  const poly = (n, rot, inner) => { const v = [], m = inner ? 2 * n : n; for (let i = 0; i < m; i++) { const a = rot + i * Math.PI * 2 / m, r = inner && i % 2 ? inner : 1; v.push([Math.cos(a), Math.sin(a)]); v[i][0] *= r; v[i][1] *= r; } return v; };
+  const UP = -Math.PI / 2;
+  const SHAPES = [poly(3, UP), poly(4, Math.PI / 4), poly(5, UP), poly(5, UP, 0.48), poly(6, 0), poly(8, UP, 0.62)]
+    .map(v => { const len = [], n = v.length; let tot = 0; for (let i = 0; i < n; i++) { const a = v[i], b = v[(i + 1) % n]; tot += Math.hypot(b[0] - a[0], b[1] - a[1]); len.push(tot); } return { v, len, tot }; });
+  function onShape(sh, u, out) {                           // the point a share u of the way round
+    const d = u * sh.tot, n = sh.v.length;
+    let i = 0; while (i < n - 1 && sh.len[i] < d) i++;
+    const a = sh.v[i], b = sh.v[(i + 1) % n], l0 = i ? sh.len[i - 1] : 0, f = (d - l0) / (sh.len[i] - l0 || 1);
+    out[0] = a[0] + (b[0] - a[0]) * f; out[1] = a[1] + (b[1] - a[1]) * f;
+  }
+  function shapePath(g, s, x, y, r0, gain, slot) {
+    const sh = SHAPES[slot % SHAPES.length], k0 = upZero(s, s.length), M = s.length - k0, pt = [0, 0], R1 = r0 * 1.2;
     return () => {
       g.beginPath();
-      for (let i = 0; i < M; i++) {
-        const px = x - half + 2 * half * i / (M - 1), py = y - Math.max(-1.6, Math.min(1.6, s[k0 + i] * gain)) * r0;
+      for (let i = 0; i <= M; i++) {
+        onShape(sh, (i % M) / M, pt);
+        const f = 1 + Math.tanh(s[k0 + (i % M)] * gain * 0.6) * 0.32;   // finer and gentler than Ring, so the shape reads
+        const px = x + pt[0] * R1 * f, py = y + pt[1] * R1 * f;
         if (i) g.lineTo(px, py); else g.moveTo(px, py);
       }
+      g.closePath();
     };
   }
   // X/Y: the voice against itself a quarter of its pitch period later, so a pure tone draws a
@@ -236,7 +253,7 @@
     }
     return best > 0.35 ? bestLag * 2 : 0;
   }
-  function xyPath(g, s, x, y, r0, gain, slot) {
+  function loopPath(g, s, x, y, r0, gain, slot) {
     const p = period(s), want = p ? p / 4 : 6;
     const tau = Math.max(2, Math.round(taus[slot] = taus[slot] ? taus[slot] + (want - taus[slot]) * 0.35 : want));
     const N = s.length, k = 1.4 * gain, A = 2.2 * r0;    // soft limit: loud peaks round off, never flatten
@@ -248,8 +265,40 @@
       }
     };
   }
-  kit.Seg(document.getElementById('scopeBox'), { options: STYLES, get: () => style,
+  // Phase: the voice against how fast it's changing, each axis scaled by its own level
+  function phasePath(g, s, x, y, r0) {
+    const N = s.length; let ex = 0, ed = 0;
+    for (let i = 1; i < N; i++) { ex += s[i] * s[i]; const dd = s[i] - s[i - 1]; ed += dd * dd; }
+    const kx = 0.45 / Math.max(1e-4, Math.sqrt(ex / N)), kd = 0.45 / Math.max(1e-5, Math.sqrt(ed / N)), A = 2.2 * r0;
+    return () => {
+      g.beginPath();
+      for (let i = 1; i < N; i++) {
+        const px = x + Math.tanh(s[i] * kx) * A, py = y - Math.tanh((s[i] - s[i - 1]) * kd) * A;
+        if (i > 1) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+    };
+  }
+  // Knot: the voice against a steady tone at 3:2 of its own pitch, started at an upward zero
+  // crossing so the knot holds still; no clear pitch uses a 1 kHz tone. The tone follows the
+  // voice's envelope, so clicks flicker rather than draw a standing bar
+  const periods = {};
+  function knotPath(g, s, x, y, r0, gain, slot) {
+    const want = period(s) || 48;
+    const p = periods[slot] = periods[slot] ? periods[slot] + (want - periods[slot]) * 0.35 : want;
+    const k0 = upZero(s, s.length), N = s.length, k = 1.4 * gain, A = 2.2 * r0, w = Math.PI * 2 * 1.5 / p;
+    const env = new Float32Array(N); let e = 0, top = 1e-9;
+    for (let i = 0; i < N; i++) { const a = Math.abs(s[i]); e = a > e ? a : e * 0.992; env[i] = e; if (e > top) top = e; }
+    return () => {
+      g.beginPath();
+      for (let i = k0; i < N; i++) {
+        const px = x + Math.tanh(s[i] * k) * A, py = y - Math.sin((i - k0) * w) * A * 0.9 * (env[i] / top);
+        if (i > k0) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+    };
+  }
+  const styleSeg = kit.Seg(document.getElementById('scopeBox'), { options: STYLES, get: () => style,
     set: v => { style = v; try { localStorage.setItem(STYLE_STORE, v); } catch (e) { /* ignore */ } drawFrame(now()); } });
+  styleSeg.el.querySelectorAll('button').forEach((b, i) => { b.title = STYLE_TITLES[STYLES[i][0]]; });
 
   let frame = null;
   function loop() {

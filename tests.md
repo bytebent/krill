@@ -7,7 +7,7 @@ Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 Moanback only when checking that a long, monotonous call works, or when a test needs a
 Throat + Mouth creature.
 
-**Now: 93 Node tests passing** (about 40 s, most of it the audio tests), plus **58 browser checks**
+**Now: 94 Node tests passing** (about 40 s, most of it the audio tests), plus **59 browser checks**
 (`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
@@ -218,13 +218,28 @@ short buzzes. Rests are exact digital silence.
 
 ### After your review
 
-![X/Y scopes: Glassfin's whistle, Siltclicker's clicks, Wicklace's buzz](docs/tests/10-xy-scopes.png)
-
 - **The ball is gone:** an answer's line appears as the answer starts and fades over 1.4 s. The
   scene test checks nothing shows before the answer, full brightness at its start, then the fade. ✓
-- **Scope styles:** Ring, Line and X/Y, remembered between visits. X/Y's pitch finder lands on
+- **Scope styles** (first round): Ring, Line and X/Y, remembered between visits. X/Y's pitch finder lands on
   the period of test tones (220 Hz: 218 samples for 218.2, 1 kHz: 48, 3 kHz: 16). In the pond,
   Glassfin's whistle draws a near-circle, Siltclicker's clicks a decaying spiral and Wicklace's
   buzz a looping shape. The scopes now carry 1024 samples so low voices fit in X/Y. ✓
 - **Fixed while testing:** X/Y first drew shapes a third of the size they should be, then flat
   edges where loud peaks hit the limit; it now scales with the voice's level and rounds peaks off.
+
+### Second round: scope styles, names, Chaos
+
+![Ring, Shapes, Loop, Phase and Knot in a pond at Chaos 80%](docs/tests/10-scope-styles.png)
+
+![Shapes: Glassfin's triangle, Wicklace's star, Siltclicker's square](docs/tests/10-shapes.png)
+
+- **Styles:** Line is gone; Ring, Shapes, Loop, Phase and Knot all draw in the browser check, and
+  the choice is remembered (an old X/Y choice becomes Loop). Names are italic Times New Roman. ✓
+- **Fixed while testing:** Shapes bent so much a triangle read as a flower; it now uses the full
+  1024 samples with a gentler bend. Knot drew a standing bar for clicks (no pitch); its tone now
+  follows the voice's envelope.
+- **Chaos** (Node): Chaos 0 gives the same score as a pond without the setting, and the same
+  audio (the 2-minute example's samples are identical; only the pond in the WAV's metadata now
+  lists `chaos: 0`). In the example pond, answers go 115 → 190 → 399 and copies 60 → 134 → 330 at
+  Chaos 0, 0.5 and 1; calls answered by several creatures 2 → 32 → 74, and those answers start
+  within half a second of each other. ✓

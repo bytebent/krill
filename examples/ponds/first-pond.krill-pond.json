@@ -310,7 +310,8 @@
   "talk": {
     "overlap": 0.2,
     "response": [0.3, 2.5],
-    "eraLength": 120
+    "eraLength": 120,
+    "chaos": 0
   },
   "space": {
     "width": 0.8

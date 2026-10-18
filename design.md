@@ -161,6 +161,13 @@ breath and loud high calls. When off it isn't computed at all. [Decided]
   Overlap's odds. A lone creature answers itself. The most talkative creature always opens the
   piece. [Decided]
 
+### 5.2.1 Chaos
+- **Chaos** (pond, Talk, 0–1, default 0): more creatures answer each call and chains run longer;
+  the answers to one call bunch together (to within about half a second at 1) and are let in
+  over the floor; more of them are copies, and recalls are likelier. It only changes the odds
+  and times of draws the conductor already makes, so Chaos 0 is exactly the pond it always was.
+  [Decided]
+
 ### 5.3 Key modes
 [Decided: two modes]
 
@@ -477,11 +484,18 @@ pitch per unit; the audio stage moves between them.
 - **Answers:** a solid white line from the caller to the answerer that appears as the answer
   starts and fades. **Copies:** a dotted line. (A ball travelling along the line was tried and
   dropped: it read as arriving too early or too late.)
-- **Scope styles** (a switch on the page, remembered): **Ring** (the waveform bends a circle),
-  **Line** (a classic trace), **X/Y** (the voice against itself a quarter of its pitch period
-  later, found from its own signal: a pure tone draws a circle, richer voices loops and
-  spirals, clicks scribble; a soft limit rounds off loud peaks). Later: a style per creature,
-  and X/Y of two creatures against each other while one answers. [Decided]
+- **Scope styles** (a switch on the page, remembered):
+  - **Ring:** the waveform bends a circle.
+  - **Shapes:** each lane bends its own outline: triangle, square, pentagon, star, hexagon,
+    eight-point star, in slot order; bent more gently than Ring so the shape still reads.
+  - **Loop** (X/Y): the voice against itself a quarter of its pitch period later (found from its
+    own signal): a pure tone draws a circle, richer voices loops and spirals.
+  - **Phase** (X/Y): the voice against how fast it's changing, each axis scaled by its level.
+  - **Knot** (X/Y): the voice against a steady tone at 3:2 of its pitch, following the voice's
+    envelope, so tones draw Lissajous knots and clicks flicker.
+  - X/Y styles use a soft limit so loud peaks round off. A plain line trace was tried and dropped.
+  - Later: a style per creature, X/Y of two creatures against each other while one answers.
+- **Names** are set in italic Times New Roman. [Decided]
 - **Plays live:** load a pond file (or open the pond page's pond) and press play; the voices
   render in real time in the page, so it can play for as long as you like.
 - **Plays WAVs too:** drop a krill WAV and it plays that file, reading the pond from its `krll`

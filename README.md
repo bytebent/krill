@@ -22,7 +22,7 @@ creature you were working on.
 
 Open `pages/pond.html` (keep it next to `creature.html`). Put creatures in up to six slots, set
 each lane to talk or ignore the others and its loudness range, then the key, talk and output
-settings. The sketch on top shows the whole piece as you change things; **Preview** renders up to
+settings. **Chaos** (in Talk) makes more creatures answer and copy at around the same time. The sketch on top shows the whole piece as you change things; **Preview** renders up to
 the first 10 minutes in the page to play. **Export…** asks for the length, fades and bits and
 saves the WAV with its pond file next to it (`krill_<seed>_<length>.wav` and
 `.krill-pond.json`). In Chrome and Edge it streams to disk, so any length works; in Safari and
@@ -35,8 +35,8 @@ slot opens that creature on the creature page.
 Open `pages/visualizer.html` (next to the other two, or press **Visualizer** on the pond page). It
 opens the pond you were working on and plays it live: each creature is a scope of its own voice,
 placed left to right as you hear it, sized by how loud its call is, and gone when it's silent.
-Answers draw a white line, copies a dotted one. **Ring**, **Line** or **X/Y** picks how the
-scopes draw (X/Y plots each voice against itself a quarter period later, so tones draw loops). **Pond length** or **Endless**
+Answers draw a white line, copies a dotted one. **Ring**, **Shapes** (a shape per lane),
+**Loop**, **Phase** and **Knot** (three X/Y figures) pick how the scopes draw. **Pond length** or **Endless**
 (six hours) picks how long it plays. **Load…** (or drop a file) opens a pond file or a krill
 WAV; a WAV plays as itself, with the pond running silently alongside for the pictures, and the
 player's own controls can seek.

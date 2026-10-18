@@ -3072,7 +3072,7 @@ select.field{padding:0 4px}
     // an answer to a heard motif: a changed copy with Mimicry's odds, otherwise a call of its own
     answer(t, heard, ctx) {
       const cc = this.cc, rng = this.rng;
-      if (heard && rng.chance(cc.mimicry)) {
+      if (heard && rng.chance(ctx && ctx.copyMore ? cc.mimicry + (1 - cc.mimicry) * ctx.copyMore : cc.mimicry)) {   // pond chaos copies more
         return realise(cc, mutate(heard, Math.max(0.15, cc.sigVariation), rng, cc.units[1]), t, ctx, rng, 'copy');
       }
       return this.call(t, ctx);
@@ -3526,6 +3526,7 @@ select.field{padding:0 4px}
     { path: 'talk.overlap', kind: 'num', min: 0, max: 1, def: 0.2 },
     { path: 'talk.response', kind: 'range', min: 0.05, max: 20, def: [0.3, 2.5] },
     { path: 'talk.eraLength', kind: 'num', min: 10, max: 1800, def: 120 },
+    { path: 'talk.chaos', kind: 'num', min: 0, max: 1, def: 0 },
     { path: 'space.width', kind: 'num', min: 0, max: 1, def: 0.8 },
     { path: 'output.minutes', kind: 'num', min: 0.1, max: 600, def: 20 },
     { path: 'output.bits', kind: 'enum', options: [16, 24], def: 24 },
@@ -3645,6 +3646,10 @@ select.field{padding:0 4px}
  *   ignore     a lane set to ignore others is outside the conversation: it starts whenever its
  *              rest is over (odds: Talkative), never waits for the floor or answers, and its
  *              calls don't hold the floor, aren't answered and aren't remembered.
+ *   chaos      (pond Talk, 0 … 1) more creatures answer each call, chains run longer, answers
+ *              bunch together and over each other, more of them copy, recalls are likelier.
+ *              It only changes odds and times of the draws already made, so 0 is the pond as it
+ *              always was, bit for bit.
  *   loudness   each call's loudness is drawn from the lane's range [low, high] dB (both ≤ 0).
  *   streams    each slot's decisions and sounds come from its own stream (seed, slot, re-rolls),
  *              so re-rolling a slot changes that creature; the others only shift where they react.
@@ -3706,7 +3711,8 @@ select.field{padding:0 4px}
     const pitch = S.makePitch(pond.pitch);
     const seconds = opts.seconds > 0 ? opts.seconds : pond.output.minutes * 60;
     const seed = pond.seed >>> 0;
-    const overlap = pond.talk.overlap, resp = pond.talk.response;
+    const overlap = pond.talk.overlap, resp = pond.talk.response, chaos = pond.talk.chaos || 0;
+    const loosen = p => p + (1 - p) * chaos;          // chaos pushes an odds towards 1
     const harmonise = !!pond.pitch.harmonise && !pitch.free;
     const era = eraWalk(seed, seconds, pond.talk.eraLength, !pitch.free);
 
@@ -3767,22 +3773,24 @@ select.field{padding:0 4px}
       if (call.end > floorUntil) floorUntil = call.end;
       // who answers this one?
       if (info.depth >= MAX_DEPTH) return;
-      const decay = Math.pow(CHAIN, info.depth);
+      const decay = Math.pow(CHAIN, info.depth * (1 - 0.5 * chaos));
       const cand = [];
       for (const o of slots) {
         if ((o === s && !solo) || o.ignore) continue;
-        if (o.rng.chance(o.cc.responsive * decay)) cand.push({ o, t: call.end + gap() });
+        const p = o.cc.responsive * decay;
+        if (o.rng.chance(chaos ? Math.min(1, p * (1 + 2 * chaos)) : p)) cand.push({ o, t: call.end + gap() * (1 - 0.5 * chaos) });
       }
       if (!cand.length) return;
       cand.sort((a, b) => a.t - b.t);
+      if (chaos) for (const c of cand) c.t = cand[0].t + (c.t - cand[0].t) * (1 - 0.85 * chaos);   // bunch the answers together
       cand.forEach((c, k) => {
-        if (k > 0 && !c.o.rng.chance(overlap)) return;
+        if (k > 0 && !c.o.rng.chance(chaos ? loosen(overlap) : overlap)) return;
         pending.push({ s: c.o, t: c.t, heard: call.motif, depth: info.depth + 1, of: idx, from: s.i, lineage: call.lineage, callerHome: s.home });
       });
     }
 
     function ctxFor(s, t) {
-      return { harmonise, sounding: harmonise ? soundingAt(active, t, s.i) : null, register: era.at(t).register };
+      return { harmonise, sounding: harmonise ? soundingAt(active, t, s.i) : null, register: era.at(t).register, copyMore: 0.6 * chaos };
     }
 
     while (true) {
@@ -3798,7 +3806,7 @@ select.field{padding:0 4px}
         pending.splice(pending.indexOf(ev), 1);
         const s = ev.s, t = ev.t;
         if (s.busyUntil > t) continue;                 // still calling
-        if (floorUntil > t && !s.rng.chance(overlap)) continue;   // someone else took the floor
+        if (floorUntil > t && !s.rng.chance(chaos ? loosen(overlap) : overlap)) continue;   // someone else took the floor
         const call = s.caller.answer(t, ev.heard, ctxFor(s, t));
         // widen the gap between caller and answerer (both at the same spot: no lean)
         const lean = solo ? 0 : Math.max(-1, Math.min(1, (s.home - ev.callerHome) * LEAN));
@@ -3817,7 +3825,7 @@ select.field{padding:0 4px}
         if (!s.rng.chance(overlap * s.cc.talkative)) { s.next = floorUntil + gap(); continue; }
       } else if (!forced && !s.rng.chance(s.cc.talkative)) { s.next = t + restOf(s, t) * 0.5; continue; }
       let call;
-      if (memory.length && s.rng.chance(s.cc.mimicry * RECALL)) {
+      if (memory.length && s.rng.chance(chaos ? Math.min(1, s.cc.mimicry * RECALL * (1 + 2 * chaos)) : s.cc.mimicry * RECALL)) {
         const k = s.rng.weighted(memory.map(m => m.weight), memory.length);
         call = s.caller.answer(t, memory[k].motif, ctxFor(s, t));
         place(s, call, { depth: 0, lineage: memory[k].lineage });

@@ -30,6 +30,7 @@
     { path: 'talk.overlap', kind: 'num', min: 0, max: 1, def: 0.2 },
     { path: 'talk.response', kind: 'range', min: 0.05, max: 20, def: [0.3, 2.5] },
     { path: 'talk.eraLength', kind: 'num', min: 10, max: 1800, def: 120 },
+    { path: 'talk.chaos', kind: 'num', min: 0, max: 1, def: 0 },
     { path: 'space.width', kind: 'num', min: 0, max: 1, def: 0.8 },
     { path: 'output.minutes', kind: 'num', min: 0.1, max: 600, def: 20 },
     { path: 'output.bits', kind: 'enum', options: [16, 24], def: 24 },

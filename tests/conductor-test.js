@@ -239,3 +239,24 @@ test('a lane with a lower loudness range sounds quieter in the mix', () => {
   const d = energy(0) - energy(-24);
   assert.ok(d > 4 && d < 24, d.toFixed(1) + ' dB quieter');
 });
+
+test('Chaos: 0 is the pond as it was; more Chaos gives more answers and copies, bunched together', () => {
+  const run = ch => CD.conduct(pond(FOUR, p => { if (ch != null) p.talk.chaos = ch; }));
+  const none = run(null), zero = run(0);
+  assert.deepEqual(zero.calls.map(c => [c.slot, c.t, c.kind, c.of, c.gainDb]), none.calls.map(c => [c.slot, c.t, c.kind, c.of, c.gainDb]), 'Chaos 0 changes nothing');
+  const stats = sc => {
+    const by = {};
+    for (const c of sc.calls) if (c.of != null) (by[c.of] = by[c.of] || []).push(c.t);
+    const multi = Object.values(by).filter(v => v.length > 1);
+    const spread = multi.length ? multi.reduce((a, v) => a + Math.max(...v) - Math.min(...v), 0) / multi.length : Infinity;
+    return { answers: sc.calls.filter(c => c.of != null).length, copies: sc.calls.filter(c => c.kind === 'copy').length, multi: multi.length, spread };
+  };
+  const a = stats(zero), b = stats(run(0.5)), c = stats(run(1));
+  assert.ok(a.answers < b.answers && b.answers < c.answers, JSON.stringify([a.answers, b.answers, c.answers]));
+  assert.ok(a.copies < b.copies && b.copies < c.copies, JSON.stringify([a.copies, b.copies, c.copies]));
+  assert.ok(c.multi > a.multi * 3, 'calls answered by several: ' + a.multi + ' → ' + c.multi);
+  assert.ok(c.spread < 0.6, 'answers to one call start within ' + c.spread.toFixed(2) + ' s of each other');
+  const n = PD.normalise({ talk: { chaos: 7 } }).pond;
+  assert.equal(n.talk.chaos, 1, 'clamped');
+  assert.equal(PD.normalise({}).pond.talk.chaos, 0, 'old ponds get 0');
+});

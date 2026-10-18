@@ -272,7 +272,7 @@
     // an answer to a heard motif: a changed copy with Mimicry's odds, otherwise a call of its own
     answer(t, heard, ctx) {
       const cc = this.cc, rng = this.rng;
-      if (heard && rng.chance(cc.mimicry)) {
+      if (heard && rng.chance(ctx && ctx.copyMore ? cc.mimicry + (1 - cc.mimicry) * ctx.copyMore : cc.mimicry)) {   // pond chaos copies more
         return realise(cc, mutate(heard, Math.max(0.15, cc.sigVariation), rng, cc.units[1]), t, ctx, rng, 'copy');
       }
       return this.call(t, ctx);
