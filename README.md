@@ -4,17 +4,29 @@ A generator for long ambient pieces made by a pond of alien creatures. Each crea
 bytebent engines (Throat, Dolphin, mouth-tube), rolls every sound from its own ranges, and takes
 turns, answers and copies the others. The pond renders to a WAV file.
 
-Status: **prototype, batch 04 of 09**. Creatures render on their own to WAV; ponds come next.
+Status: **prototype, batch 05 of 09**. The creature page works; ponds come next.
 
 - `design.md`: what krill is and how it works
 - `plan.md`: build batches for the prototype
 - `tests.md`: what's been tested and the results, with screenshots
+
+## Creature page
+
+Open `pages/creature.html` in a current browser, straight from disk (no server needed). Design a
+creature, press **Call** (or Space) to hear one call, **Signature** for its signature call, and
+**Render 60 s solo** for a WAV. **Save** downloads a `.krill-creature.json`; **Load** or drag a
+file onto the page to open one. The four examples are under **Examples**. The page remembers the
+creature you were working on.
+
+The page is built from `pages/src/` with `node tools/build-pages.js`; rebuild after changing
+`src/`, `vendor/` or `pages/src/`. `node tools/check-pages.js` drives it in headless Chromium.
 
 ## Layout
 
 - `vendor/`: unmodified copies of the Throat, Dolphin and mouth-tube reference engines, with
   their source commits in `vendor/VERSIONS.md`
 - `src/`: krill itself, plain JavaScript that runs in Node and in the browser
+- `pages/`: the built pages; `pages/src/`: their sources (template, kit, page script, worker)
 - `tests/`: Node tests
 - `tools/`: command-line tools
 - `examples/`: example creatures and ponds

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>krill · creature</title>
+<style>
+/*KIT_CSS*/
+.titlebar .namebox{display:flex;align-items:center;gap:6px}
+.titlebar #name{width:190px}
+.titlebar #dirty{color:var(--purple);font-weight:700}
+.mouthwrap{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;margin-top:12px}
+.mouthwrap .padbox{flex:0 0 auto;background:var(--platinum-hi);border:1px solid var(--etch);border-radius:6px;box-shadow:0 1px 0 #fff, inset 0 1px 0 #fff;padding:8px 10px 10px}
+.mouthwrap fieldset{flex:1 1 420px}
+#mouthOff{margin:6px 0 0}
+#g-source fieldset{flex:1 1 440px}
+.callgrid{display:grid;grid-template-columns:1fr auto;gap:10px 18px;align-items:start}
+.callgrid .side{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+#sigSeed{font:11px var(--mono);color:var(--ink-soft)}
+.keybox{display:flex;align-items:center;gap:6px}
+@media (max-width:760px){ #g-source fieldset{flex:1 1 440px}
+.callgrid{grid-template-columns:1fr} .titlebar #name{width:140px} }
+</style>
+</head>
+<body>
+<div class="window" role="application" aria-label="krill creature page">
+  <div class="titlebar">
+    <span class="closebox" aria-hidden="true"></span>
+    <span class="stripes" id="mark" aria-hidden="true"></span>
+    <h1>krill</h1><span class="sub">creature</span>
+    <span class="lines"></span>
+    <span class="namebox">
+      <input class="field" id="name" maxlength="40" aria-label="Creature name" spellcheck="false">
+      <button class="sq" id="dice" type="button" aria-label="Random name" title="Random name">&#x2684;</button>
+      <span id="dirty" title="Changed since it was saved or loaded" hidden>*</span>
+    </span>
+    <span class="lines"></span>
+    <button class="gel grey small" id="toPond" type="button" disabled title="The pond page comes in batch 08">Pond</button>
+  </div>
+  <div class="body">
+    <div class="screen">
+      <div class="views">
+        <div class="view"><canvas class="base" id="spec" aria-label="Spectrogram of the last call"></canvas><canvas id="specTop" aria-hidden="true"></canvas><span class="lbl">CALL</span></div>
+        <div class="view"><canvas class="base" id="tube" aria-label="Tube shape of the unit sounding, or the pitch of the call without a mouth"></canvas><span class="lbl" id="tubeLbl">TUBE</span></div>
+      </div>
+      <div class="readouts" id="ro" aria-live="off"></div>
+    </div>
+
+    <div class="rows">
+      <fieldset style="flex:0 1 auto"><legend><span class="dot"></span>Species</legend>
+        <div class="knobs" id="g-species" style="justify-content:flex-start;gap:18px;padding-top:4px"></div>
+      </fieldset>
+      <fieldset style="flex:1 1 420px"><legend><span class="dot"></span>Pitch</legend>
+        <div class="ranges" id="g-pitch"></div>
+        <p class="note" id="pitchNote"></p>
+      </fieldset>
+    </div>
+
+    <div class="section"><span class="dot" id="srcDot"></span><span id="srcTitle">Source</span><span class="rule"></span></div>
+    <p class="note">Every unit rolls a value inside each range. Double-click a range to lock it to one value.</p>
+    <div class="rows" id="g-source"></div>
+
+    <div class="section"><span class="dot" style="background:var(--purple)"></span>Mouth<span class="rule"></span></div>
+    <p class="note" id="mouthOff" hidden>No mouth: the source sounds as it is. Turn Mouth on under Species.</p>
+    <div class="mouthwrap">
+      <div class="padbox" id="padBox"><svg class="pad" id="pad"></svg>
+        <span class="note">Drag to draw the tongue region; dots show the last call.</span></div>
+      <fieldset id="fsMouth"><legend><span class="dot" style="background:var(--purple)"></span>Tract</legend><div class="ranges" id="g-mouth"></div></fieldset>
+    </div>
+
+    <div class="section"><span class="dot"></span>Behaviour<span class="rule"></span></div>
+    <div class="rows">
+      <fieldset style="flex:2 1 520px"><legend><span class="dot"></span>Call</legend>
+        <div class="callgrid">
+          <div class="ranges" id="g-call-r"></div>
+          <div class="side"><div id="g-call-s" style="display:flex;flex-direction:column;gap:8px"></div><div class="knobs" id="g-call-k"></div></div>
+        </div>
+      </fieldset>
+      <fieldset style="flex:0 1 200px"><legend><span class="dot"></span>Signature</legend>
+        <div class="knobs" id="g-sig"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;justify-content:center">
+          <button class="gel grey small" id="sigRoll" type="button" title="New creature seed: a new signature call">Re-roll</button>
+          <span id="sigSeed"></span>
+        </div>
+      </fieldset>
+      <fieldset style="flex:1 1 300px"><legend><span class="dot"></span>Manner</legend><div class="knobs" id="g-manner"></div>
+        <p class="note">Talkative, Responsive and Mimicry act in a pond.</p></fieldset>
+    </div>
+
+    <div class="actions">
+      <button class="gel" id="call" type="button" title="Render and play one call (Space)">Call</button>
+      <button class="gel grey" id="sig" type="button" title="Render and play the signature call">Signature</button>
+      <button class="gel grey" id="solo" type="button" title="Render 60 seconds of this creature alone to a WAV file">Render 60 s solo</button>
+      <span class="progress" id="prog"><i></i></span>
+      <span class="sep"></span>
+      <span class="keybox" id="keyBox"><select class="field" id="root" aria-label="Preview root"></select><select class="field" id="scale" aria-label="Preview scale"></select></span>
+      <span class="sep"></span>
+      <span class="wrapmenu"><button class="gel grey small" id="examples" type="button" aria-haspopup="true">Examples &#x25BE;</button><div class="menu" id="exMenu" hidden></div></span>
+      <button class="gel grey small" id="new" type="button">New</button>
+      <button class="gel grey small" id="load" type="button">Load&#x2026;</button>
+      <button class="gel grey small" id="save" type="button">Save</button>
+      <span class="status" id="status" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+</div>
+<input type="file" id="file" accept=".json,application/json" hidden>
+<script type="text/plain" id="worker-src">/*WORKER*/</script>
+<script>/*MAIN*/</script>
+</body>
+</html>

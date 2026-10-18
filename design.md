@@ -336,9 +336,17 @@ mouth-tube purple.
 │ (Call)  (Signature)  (Render 60 s solo)          Save…  Load…    │
 └──────────────────────────────────────────────────────────────────┘
 ```
-- **Call** renders and plays one fresh call; **Signature** plays the signature call.
-- **Render 60 s solo** renders the creature alone in a one-slot pond and offers the WAV.
+- **Call** (or Space) renders and plays one call, as the creature would call in a pond (fresh or
+  its signature, by its own odds); each press takes the next preview seed. **Signature** plays
+  the signature call; **Re-roll** gives the creature a new seed and so a new signature.
+- **Render 60 s solo** renders the creature alone and downloads the WAV.
 - Changing a range doesn't re-roll anything until the next Call.
+- As built: the LCD shows the call's spectrogram (colours scaled to the call's own peak), unit
+  lanes and notes; the right view shows the tube shape of the unit sounding, or the call's pitch
+  for a creature without a mouth. The action bar is sticky at the bottom with the preview key
+  (In key / Free, root, scale), Examples, New, Load and Save. Files can be dropped on the page,
+  and the page keeps the current creature in browser storage. Renders run in a worker started
+  from inlined code, so the page is one self-contained file that opens from disk. [Decided]
 
 ### 9.2 Pond page
 ```

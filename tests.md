@@ -3,7 +3,8 @@
 Quick results per batch. Screenshots live in `docs/tests/`. Run everything with
 `node tests/run.js`.
 
-**Now: 54 tests passing** (about 18 s, most of it the audio tests).
+**Now: 59 Node tests passing** (about 19 s, most of it the audio tests), plus **20 browser checks**
+(`node tools/check-pages.js`, needs Playwright).
 
 ## Batch 01 · setup and engines
 
@@ -73,3 +74,28 @@ short buzzes. Rests are exact digital silence.
   | Dolphin + tube | +12.1 dB | -19.8 dB |
 
 - Listening check (you): passed.
+
+## Batch 05 · creature page
+
+![The creature page](docs/tests/05-creature-page.png)
+
+- Browser check in headless Chromium, 20 of 20: page loads, 39 range sliders and 10 knobs build,
+  Call renders in the worker and plays (about 0.3 s per call), all four examples call, range
+  drag edits the creature and marks it changed, double-click locks, drawing on the vowel pad
+  sets both tongue ranges, switching species rebuilds the source panel, Signature in free mode,
+  Save downloads a file that loads back cleanly, Render 60 s solo downloads a valid WAV in
+  about 1 s, the creature survives a reload, no horizontal scroll at phone width, no console
+  errors. ✓
+- Node: the built page is current, previews repeat for a seed, the Signature button plays the
+  signature, a 1.5 kHz tone lands in its spectrogram bin, the solo WAV is complete. ✓
+
+![LCD with Moanback: spectrogram and tube](docs/tests/05-lcd-moanback.png)
+
+![Mouth panel with Ticker: tongue region and the last call's positions](docs/tests/05-mouth-ticker.png)
+
+- **Fixed while testing:** the page read the creature before one existed (blank page);
+  Dolphin's sliders were cramped three to a row (now two); the spectrogram's fixed -110 dB floor
+  lit up Dolphin's faint click noise, so colours now follow each call's own peak (60 dB window).
+- Phone width:
+
+  ![Creature page at phone width](docs/tests/05-creature-phone.png)
