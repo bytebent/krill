@@ -11,7 +11,9 @@ const ROOT = path.join(__dirname, '..');
 const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const js = files => files.map(f => '// ---- ' + f + '\n' + read(f)).join('\n').replace(/<\/script/gi, '<\\/script');
 
-const ENGINES = ['vendor/throat-engine.js', 'vendor/dolphin-engine.js', 'vendor/mouth-tube.js'];
+const ENGINES = ['vendor/throat-engine.js', 'vendor/dolphin-engine.js', 'vendor/mouth-tube.js', 'vendor/syrinx-maps.js', 'vendor/syrinx-engine.js', 'vendor/beak-tube.js'];
+// the pond the pages open with and load from Example (on the krill-birds-v1 branch: the bird pond)
+const EXAMPLE_POND = 'dawn-pond.krill-pond.json';
 const CORE = ['src/rng.js', 'src/scales.js', 'src/parts.js', 'src/creature.js', 'src/roll.js', 'src/engines.js', 'src/version.js',
   'src/pan.js', 'src/voice.js', 'src/pond.js', 'src/conductor.js', 'src/mixer.js', 'src/wav.js', 'src/preview.js'];
 
@@ -33,7 +35,7 @@ function buildCreature() {
 
 function buildPond() {
   const worker = js(ENGINES.concat(CORE, ['pages/src/worker.js']));
-  const pondEx = fs.readFileSync(path.join(ROOT, 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8');
+  const pondEx = fs.readFileSync(path.join(ROOT, 'examples', 'ponds', EXAMPLE_POND), 'utf8');
   const main = examples() + 'window.KRILL_POND_EXAMPLE = ' + JSON.stringify(JSON.parse(pondEx)) + ';\n' +
     js(['src/rng.js', 'src/scales.js', 'src/parts.js', 'src/creature.js', 'src/roll.js', 'src/pond.js', 'src/conductor.js', 'src/pan.js', 'src/wav.js', 'pages/src/kit.js', 'pages/src/pond-page.js']);
   return read('pages/src/pond.html')
@@ -45,7 +47,7 @@ function buildPond() {
 function buildVisualizer() {
   // the worklet is an ES module with no `self`; krill's modules attach to self
   const worklet = js(ENGINES.concat(CORE, ['pages/src/player-worklet.js']));
-  const pondEx = fs.readFileSync(path.join(ROOT, 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8');
+  const pondEx = fs.readFileSync(path.join(ROOT, 'examples', 'ponds', EXAMPLE_POND), 'utf8');
   const main = 'window.KRILL_POND_EXAMPLE = ' + JSON.stringify(JSON.parse(pondEx)) + ';\n' +
     js(['src/rng.js', 'src/scales.js', 'src/parts.js', 'src/creature.js', 'src/roll.js', 'src/pond.js', 'src/conductor.js', 'src/pan.js', 'src/scene.js', 'src/wav.js', 'pages/src/kit.js', 'pages/src/visualizer-page.js']);
   return read('pages/src/visualizer.html')
@@ -63,4 +65,4 @@ if (require.main === module) {
     console.log(out + '  ' + (html.length / 1024).toFixed(0) + ' kB');
   }
 }
-module.exports = { PAGES };
+module.exports = { PAGES, EXAMPLE_POND };

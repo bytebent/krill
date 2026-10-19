@@ -1,0 +1,81 @@
+{
+  "format": "krill-creature",
+  "version": 2,
+  "name": "Kelpbeak",
+  "seed": 9937,
+  "source": "dolphin",
+  "body": "beak",
+  "pitch": {
+    "low": 62,
+    "high": 76,
+    "contour": [-2, 5]
+  },
+  "ranges": {
+    "dolphin.rate": [-3, -1],
+    "dolphin.keytrack": [1, 1],
+    "dolphin.freerate": [13, 13],
+    "dolphin.pattern": [0, 0],
+    "dolphin.coda": [0, 0],
+    "dolphin.jitter": [0, 0.2],
+    "dolphin.rubato": [0, 0.3],
+    "dolphin.ornament": [0, 0],
+    "dolphin.clicktone": [-0.5, 0.5],
+    "dolphin.clickwidth": [0.1, 0.1],
+    "dolphin.ring": [0, 0.3],
+    "dolphin.vowel": [0, 0.5],
+    "dolphin.shape": [1, 4],
+    "dolphin.sweep": [-0.5, 1.2],
+    "dolphin.time": [0.3, 1.5],
+    "dolphin.wtranspose": [0, 0],
+    "dolphin.harmonics": [1, 2],
+    "dolphin.harmlevel": [-18, -8],
+    "dolphin.register": [0.7, 1],
+    "dolphin.biphon": [0, 0.3],
+    "dolphin.size": [0, 0.25],
+    "dolphin.sizemode": [0, 0],
+    "beak.size": [0.2, 0.35],
+    "beak.mode": [0, 0],
+    "beak.trachlen": [3, 5],
+    "beak.trachloss": [0.2, 0.4],
+    "beak.larynx": [0.5, 0.7],
+    "beak.track": [0.85, 1],
+    "beak.tune": [3000, 5000],
+    "beak.lag": [0.003, 0.008],
+    "beak.ring": [0.5, 0.7],
+    "beak.gape": [0.4, 0.7],
+    "beak.gapefollow": [0.5, 0.8],
+    "beak.tonguefb": [0.3, 0.7],
+    "beak.tongueht": [0.2, 0.4],
+    "beak.sactune": [500, 700],
+    "beak.inflate": [0.7, 0.9],
+    "beak.body": [0, 0.2]
+  },
+  "morph": 0.3,
+  "call": {
+    "units": [1, 4],
+    "unitLength": [0.3, 1.8],
+    "gap": [0.05, 0.4],
+    "legato": false,
+    "evolve": "arc",
+    "evolveAmount": 0.4,
+    "rest": [5, 30],
+    "attack": [0.02, 0.15],
+    "release": [0.2, 1]
+  },
+  "signature": {
+    "amount": 0.5,
+    "variation": 0.2
+  },
+  "manner": {
+    "talkative": 0.4,
+    "responsive": 0.6,
+    "mimicry": 0.5,
+    "pan": 0.5,
+    "wander": 0.3,
+    "level": -10
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
+  }
+}

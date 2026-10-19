@@ -1,8 +1,17 @@
 # krill
 
 A generator for long ambient pieces made by a pond of alien creatures. Each creature is built from
-bytebent engines (Throat, Dolphin, mouth-tube), rolls every sound from its own ranges, and takes
+bytebent engines (Throat, Dolphin, mouth-tube; on this branch also Syrinx and beak-tube), rolls every sound from its own ranges, and takes
 turns, answers and copies the others. The pond renders to a WAV file.
+
+> **Branch `krill-birds-v1`: a first try with birds, not for main.** It adds
+> [Syrinx](https://github.com/bytebent/syrinx) as a third source and
+> [beak-tube](https://github.com/bytebent/beak-tube) as a second body (shown as **Beak**). Both
+> are unfinished prototypes, frozen in `vendor/` at the commits in `vendor/VERSIONS.md`. Every
+> source works with every body; there are eight new example creatures and two new ponds
+> (`dawn-pond`, birds only, which the pages now open as their example, and `shore-pond`, the old
+> creatures with the birds). The first pond still renders exactly as on main. Results: `tests.md`,
+> *Branch krill-birds-v1*.
 
 Status: **prototype, batch 10 of 11**. Pond, creature and visualizer pages work; the listening round is next.
 
@@ -47,7 +56,8 @@ The pages are built from `pages/src/` with `node tools/build-pages.js`; rebuild 
 ## Layout
 
 - `src/parts.js`: the sources and bodies a creature can be built from; add new engines here
-- `vendor/`: unmodified copies of the Throat, Dolphin and mouth-tube reference engines, with
+- `vendor/`: unmodified copies of the Throat, Dolphin, mouth-tube, Syrinx (engine and map) and
+  beak-tube reference engines, with
   their source commits in `vendor/VERSIONS.md`
 - `src/`: krill itself, plain JavaScript that runs in Node and in the browser
 - `pages/`: the built pages; `pages/src/`: their sources (templates, kit, page scripts, render

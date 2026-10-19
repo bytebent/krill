@@ -1,0 +1,68 @@
+{
+  "format": "krill-creature",
+  "version": 2,
+  "name": "Quilltongue",
+  "seed": 8831,
+  "source": "throat",
+  "body": "beak",
+  "pitch": {
+    "low": 55,
+    "high": 72,
+    "contour": [-4, 4]
+  },
+  "ranges": {
+    "throat.voicing": [0.85, 1],
+    "throat.breathy": [0, 0.3],
+    "throat.tense": [0.2, 0.6],
+    "throat.creaky": [0, 0.2],
+    "throat.thin": [0.2, 0.6],
+    "throat.growl": [0, 0.1],
+    "throat.jitter": [0.05, 0.2],
+    "throat.shimmer": [0.05, 0.2],
+    "throat.source": [0, 0],
+    "beak.size": [0.3, 0.45],
+    "beak.mode": [1, 1],
+    "beak.trachlen": [3, 5],
+    "beak.trachloss": [0.2, 0.4],
+    "beak.larynx": [0.5, 0.7],
+    "beak.track": [0.8, 1],
+    "beak.tune": [3000, 5000],
+    "beak.lag": [0.003, 0.008],
+    "beak.ring": [0.4, 0.6],
+    "beak.gape": [0.5, 0.9],
+    "beak.gapefollow": [0.5, 0.8],
+    "beak.tonguefb": [0, 1],
+    "beak.tongueht": [0, 0.6],
+    "beak.sactune": [500, 700],
+    "beak.inflate": [0.7, 0.9],
+    "beak.body": [0, 0.2]
+  },
+  "morph": 0.6,
+  "call": {
+    "units": [2, 7],
+    "unitLength": [0.12, 0.6],
+    "gap": [0.03, 0.25],
+    "legato": false,
+    "evolve": "wander",
+    "evolveAmount": 0.5,
+    "rest": [4, 25],
+    "attack": [0.01, 0.06],
+    "release": [0.05, 0.3]
+  },
+  "signature": {
+    "amount": 0.4,
+    "variation": 0.3
+  },
+  "manner": {
+    "talkative": 0.5,
+    "responsive": 0.6,
+    "mimicry": 0.7,
+    "pan": -0.35,
+    "wander": 0.4,
+    "level": -16
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
+  }
+}

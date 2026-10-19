@@ -49,7 +49,7 @@
     const caller = new R.Caller(creature, pitch, rng);
     const cc = caller.cc;
     const call = opts.kind === 'signature'
-      ? R.realise(cc, R.mutate(cc.signature, cc.sigVariation, rng, cc.units[1]), START, {}, rng, 'signature')
+      ? R.realise(cc, R.mutate(cc.signature, cc.sigVariation, rng, cc.units[1], cc.units[0]), START, {}, rng, 'signature')
       : caller.call(START, {});
     const slot = R.slotInfo(cc);
     const voice = new Voice(slot, [call], { sampleRate: sr, seed: hash(seed, tag('slot'), 0, 0), pan: slot.pan, wander: slot.wander, level: slot.level });

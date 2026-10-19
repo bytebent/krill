@@ -243,3 +243,67 @@ short buzzes. Rests are exact digital silence.
   lists `chaos: 0`). In the example pond, answers go 115 → 190 → 399 and copies 60 → 134 → 330 at
   Chaos 0, 0.5 and 1; calls answered by several creatures 2 → 32 → 74, and those answers start
   within half a second of each other. ✓
+
+## Branch krill-birds-v1: Syrinx and beak-tube
+
+A parallel version, not for main: Syrinx (`701f706`, batch 08) as a source and beak-tube
+(`10b865e`, batch 05) as a body named Beak, copied unmodified into `vendor/` with their hashes.
+
+**How they fit**
+
+- *Syrinx* holds one note and moves pitch through its bend (±48 st), like Dolphin. Transpose is
+  fixed at 0, so krill's note is the pitch heard at Size 25% (MIDI 96 ≈ 2.1 kHz); Size moves the
+  whole bird, so a bigger bird sings lower, and the page's pitch note says where it lands in Hz.
+  Mono mode, Sync off; krill drives attack, release and glide as for the others. Duo and
+  Independent play one side, since krill holds one note.
+- *In key mode* Syrinx's Lock is switched on (Size moves whole octaves, sweeps end on semitones, no
+  pitch jitter), and a pattern sweep's end, the Interval side and the Triple membrane land on the
+  scale. Bend passes through Lock untouched, so krill's contours stay smooth. Test: in D minor,
+  every sweep end, interval and membrane pitch is on the scale. ✓
+- *Beak* runs mono; its throat follows the pitch it hears, so it works on all three sources. In
+  front of Beak, Syrinx starts with its own Filter off (as on beak-tube's bench); switching a
+  Syrinx creature's body to Beak on the creature page does the same.
+- *Headroom:* Syrinx's Volume and Beak's Output are turned down 12 dB and added back. Over
+  60-second renders of four seeds per species the largest sample inside the engines is 0.135. ✓
+
+**Calibration** (`tools/calibrate.js`, 6 renders per species): throat+beak +31.5 dB,
+dolphin+beak −8.5, syrinx+none −3.1, syrinx+tube −30.7, syrinx+beak −4.9; the four old values are
+unchanged. Throat through Beak needs a lot: a bird's tract on a voice in the human range passes
+little but the top. Syrinx through Mouth has a large crest factor (bird pitches landing on
+human-tract resonances), so its loud calls lean on the limiter more than other species.
+
+**Examples** — one for every new pairing:
+
+| Creature | Species | Meant as |
+|---|---|---|
+| Reedwarbler | Syrinx | a songbird: trills and sweeps handed between the sides |
+| Cinderchat | Syrinx | a harsh chatterer: Triple, Jumps and Chaos, short bursts |
+| Paleflute | Syrinx + Beak | slow tracked whistles, legato |
+| Duskcoo | Syrinx + Beak (Sac) | a dove: Single source, low coos |
+| Hollowboom | Syrinx + Beak (Boom) | a huge bird booming |
+| Mirelark | Syrinx + Mouth | whistles through vowels |
+| Quilltongue | Throat + Beak (Parrot) | a voice in a parrot's head |
+| Kelpbeak | Dolphin + Beak | whistles retuned by a bird's throat |
+
+![Three minutes of each new example](docs/tests/birds-01-examples-spectrograms.png)
+
+Levels while calling sit between −22 and −31 dB, like the old examples. A minute of any of them
+renders in under 2 s. Ponds: *Dawn pond* (six birds, D pentatonic minor, Chaos 20%) and *Shore
+pond* (Glassfin and Moanback with four of the new ones). Three minutes render in 19 s and 13 s
+(9.4× and 13.8× real time), peak −7.4 and −8.4 dBFS before the limiter. Syrinx is the costly
+engine: about 3–11% of a core per sounding voice.
+
+![Dawn pond and Shore pond, first 40 s](docs/tests/birds-01-ponds-spectrogram.png)
+
+![The creature page with Paleflute](docs/tests/birds-01-creature-page.png)
+
+**Fixed while testing** (a krill bug, also on main): a copy or a signature could drop a unit
+below the creature's smallest unit count (the largest was already guarded). Cinderchat showed it
+(a 1-unit copy with Units 2–6). The guard keeps the random draw where it was, so every call that
+was right before is the same: the first pond's 20-minute render is bit-identical to main's. ✓
+
+**Tests:** `node tests/run.js` 98 passed (new: the two engines render and follow the bend, all
+nine species are clean, Syrinx key mode, Beak's Filter default). `node tools/check-pages.js` 68
+passed: every example calls on the creature page, the pond page carries Dawn pond and its
+mechanics are checked on the first pond as before, and the visualizer plays Dawn pond live in the
+AudioWorklet with all six scopes. Not tested: Safari, and listening, which is yours.

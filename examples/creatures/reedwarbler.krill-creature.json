@@ -1,0 +1,78 @@
+{
+  "format": "krill-creature",
+  "version": 2,
+  "name": "Reedwarbler",
+  "seed": 2201,
+  "source": "syrinx",
+  "body": "none",
+  "pitch": {
+    "low": 91,
+    "high": 103,
+    "contour": [-3, 5]
+  },
+  "ranges": {
+    "syrinx.topology": [0, 0],
+    "syrinx.membrane": [-24, -24],
+    "syrinx.memlevel": [0.5, 0.5],
+    "syrinx.regime": [0.1, 0.4],
+    "syrinx.link": [0.5, 0.9],
+    "syrinx.grain": [0.05, 0.25],
+    "syrinx.breathbend": [0, 0.15],
+    "syrinx.playmode": [0, 0],
+    "syrinx.split": [3000, 4000],
+    "syrinx.overlap": [300, 300],
+    "syrinx.interval": [7, 7],
+    "syrinx.asym": [0.1, 0.3],
+    "syrinx.balance": [-0.2, 0.2],
+    "syrinx.coupling": [0.05, 0.25],
+    "syrinx.jumps": [0, 0.15],
+    "syrinx.trachea": [3, 5],
+    "syrinx.chaos": [0, 0],
+    "syrinx.wobblerate": [0, 0],
+    "syrinx.wobble": [0, 0],
+    "syrinx.wobblefm": [0, 0],
+    "syrinx.pressure": [0.55, 0.85],
+    "syrinx.minibreath": [0.6, 0.6],
+    "syrinx.pattern": [0, 1],
+    "syrinx.sylrate": [8, 22],
+    "syrinx.duty": [0.45, 0.75],
+    "syrinx.shape": [1, 5],
+    "syrinx.sweep": [-1.2, 1.2],
+    "syrinx.sides": [0, 0],
+    "syrinx.trill": [0.7, 0.7],
+    "syrinx.jitter": [0, 0.15],
+    "syrinx.size": [0.2, 0.3],
+    "syrinx.tempolock": [0.5, 0.5],
+    "syrinx.filter": [1, 1],
+    "syrinx.lock": [0, 0],
+    "syrinx.glidestyle": [0, 0]
+  },
+  "morph": 0.4,
+  "call": {
+    "units": [3, 9],
+    "unitLength": [0.08, 0.6],
+    "gap": [0.02, 0.2],
+    "legato": false,
+    "evolve": "wander",
+    "evolveAmount": 0.5,
+    "rest": [2, 14],
+    "attack": [0.004, 0.02],
+    "release": [0.02, 0.1]
+  },
+  "signature": {
+    "amount": 0.5,
+    "variation": 0.3
+  },
+  "manner": {
+    "talkative": 0.7,
+    "responsive": 0.6,
+    "mimicry": 0.5,
+    "pan": 0.35,
+    "wander": 0.4,
+    "level": -6
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
+  }
+}

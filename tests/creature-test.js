@@ -10,6 +10,8 @@ const vendor = {
   throat: require(path.join(V, 'throat-engine.js')).PARAMS,
   dolphin: require(path.join(V, 'dolphin-engine.js')).PARAMS,
   mouth: require(path.join(V, 'mouth-tube.js')).PARAMS,
+  syrinx: require(path.join(V, 'syrinx-engine.js')).PARAMS,
+  beak: require(path.join(V, 'beak-tube.js')).PARAMS,
 };
 function vendorList(eng) {
   const p = vendor[eng];
@@ -17,8 +19,8 @@ function vendorList(eng) {
 }
 
 test('parameter table matches every vendored engine parameter', () => {
-  const NS = { throat: 'throat', dolphin: 'dolphin', mouth: 'tube' };     // vendored engine → krill namespace
-  for (const eng of ['throat', 'dolphin', 'mouth']) {
+  const NS = { throat: 'throat', dolphin: 'dolphin', mouth: 'tube', syrinx: 'syrinx', beak: 'beak' };     // vendored engine → krill namespace
+  for (const eng of ['throat', 'dolphin', 'mouth', 'syrinx', 'beak']) {
     const ours = {};
     for (const s of C.ENGINES[NS[eng]]) ours[s.id] = s;
     for (const d of vendorList(eng)) {
@@ -47,19 +49,31 @@ test('engines are driven in mono mode with LFOs off', () => {
   assert.equal(C.BY_KEY['dolphin.mode'].value, 0);
   for (let i = 1; i <= 4; i++) assert.equal(C.BY_KEY['dolphin.lfo' + i + 'target'].value, 0);
   assert.equal(C.BY_KEY['tube.mix'].value, 1);
+  assert.equal(C.BY_KEY['syrinx.mode'].value, 0);
+  assert.equal(C.BY_KEY['syrinx.sync'].value, 0);
+  assert.equal(C.BY_KEY['syrinx.transpose'].value, 0);
+  assert.equal(C.BY_KEY['beak.mix'].value, 1);
+  assert.equal(C.BY_KEY['beak.bypass'].value, 0);
 });
 
-test('defaults for all four species are clean', () => {
-  assert.deepEqual(C.SOURCES, ['throat', 'dolphin']);
-  assert.deepEqual(C.BODIES, ['none', 'tube']);
+test('Syrinx in front of Beak starts with its own Filter off; on its own it keeps it', () => {
+  assert.deepEqual(C.defaults('syrinx', 'beak').ranges['syrinx.filter'], [0, 0]);
+  assert.deepEqual(C.defaults('syrinx', 'none').ranges['syrinx.filter'], [1, 1]);
+  assert.deepEqual(C.defaults('syrinx', 'tube').ranges['syrinx.filter'], [1, 1]);
+});
+
+test('defaults for all nine species are clean', () => {
+  assert.deepEqual(C.SOURCES, ['throat', 'dolphin', 'syrinx']);
+  assert.deepEqual(C.BODIES, ['none', 'tube', 'beak']);
   for (const src of C.SOURCES) for (const body of C.BODIES) {
     const c = C.defaults(src, body);
     const { creature, warnings } = C.normalise(c);
     assert.deepEqual(warnings, [], src + '+' + body);
     assert.deepEqual(creature, c);
     const act = C.activeParams(creature);
-    assert.equal(act.some(a => a.spec.engine === 'tube'), body === 'tube');
-    assert.ok(act.every(a => a.spec.engine === src || a.spec.engine === 'tube'));
+    const bodyNs = C.PARTS.BODIES[body].ns;
+    for (const ns of ['tube', 'beak']) assert.equal(act.some(a => a.spec.engine === ns), bodyNs === ns, src + '+' + body + ' uses ' + ns);
+    assert.ok(act.every(a => a.spec.engine === src || a.spec.engine === bodyNs));
     assert.deepEqual(creature.filter, { on: false, cutoff: 8000 });
   }
 });
@@ -154,7 +168,7 @@ test('example creatures load without warnings', () => {
     assert.equal(C.serialise(creature), txt, f + ' is not in canonical form');
     species.add(C.species(creature));
   }
-  assert.equal(species.size, 4, 'one example per species');
+  assert.equal(species.size, 9, 'an example for every source + body');
 });
 
 test('version 1 files migrate: mouth becomes a body, mouth.* becomes tube.*', () => {

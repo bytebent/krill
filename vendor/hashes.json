@@ -1,5 +1,8 @@
 {
   "throat-engine.js": "6cddc6c59f56437c2b6568fd1bad7280c6a2b957f9545f2c9415c4b68792d0e7",
   "dolphin-engine.js": "1a7b18443203d4fa7b13fa6c10d8b28be285dd19a06ebd5b524d896e46813278",
-  "mouth-tube.js": "347f778ff4412c993086b3dd2e5d25d9214a2071e8ef4fbcd7f6a1562e207372"
+  "mouth-tube.js": "347f778ff4412c993086b3dd2e5d25d9214a2071e8ef4fbcd7f6a1562e207372",
+  "syrinx-engine.js": "c9323d532a909878aa230e7a38def831409376bc55b969cef337a1f236aed9b7",
+  "syrinx-maps.js": "ead0ab1d97f101f2009baf37888dfc824723e1bfe8b05d4debcd7299e5bec884",
+  "beak-tube.js": "ed4d45d143a14efc1a21a58a967073cd7f882d5419eef35311d97d2859d407bd"
 }

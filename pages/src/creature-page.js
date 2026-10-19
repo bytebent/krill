@@ -60,8 +60,13 @@
   controls.push(kit.Seg(gSpecies, {
     label: 'Body', options: C.BODIES.map(id => [id, PARTS.BODIES[id].label]),
     get: () => creature.body,
-    set: v => { creature.body = v; fillDefaults(); buildBody(); refreshAll(); changed(); },
+    set: v => { creature.body = v; fillDefaults(); pairDefaults(); buildBody(); refreshAll(); changed(); },
   }));
+  // a body can ask for some source settings when the two meet (Beak turns Syrinx's own Filter off)
+  function pairDefaults() {
+    const pair = (PARTS.BODIES[creature.body].sourceDefaults || {})[creature.source];
+    if (pair) for (const id in pair) creature.ranges[PARTS.SOURCES[creature.source].ns + '.' + id] = pair[id].slice();
+  }
   // a newly chosen part starts from its defaults for any range the creature doesn't have yet
   function fillDefaults() {
     const d = C.defaults(creature.source, creature.body);

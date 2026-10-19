@@ -1,0 +1,78 @@
+{
+  "format": "krill-creature",
+  "version": 2,
+  "name": "Cinderchat",
+  "seed": 5519,
+  "source": "syrinx",
+  "body": "none",
+  "pitch": {
+    "low": 76,
+    "high": 90,
+    "contour": [-2, 2]
+  },
+  "ranges": {
+    "syrinx.topology": [2, 2],
+    "syrinx.membrane": [-24, -12],
+    "syrinx.memlevel": [0.4, 0.8],
+    "syrinx.regime": [0.6, 1],
+    "syrinx.link": [0, 0.3],
+    "syrinx.grain": [0.2, 0.5],
+    "syrinx.breathbend": [0, 0.15],
+    "syrinx.playmode": [0, 0],
+    "syrinx.split": [3500, 3500],
+    "syrinx.overlap": [300, 300],
+    "syrinx.interval": [7, 7],
+    "syrinx.asym": [0.1, 0.3],
+    "syrinx.balance": [-0.2, 0.2],
+    "syrinx.coupling": [0.05, 0.2],
+    "syrinx.jumps": [0.2, 0.6],
+    "syrinx.trachea": [4, 8],
+    "syrinx.chaos": [0.1, 0.5],
+    "syrinx.wobblerate": [0, 0],
+    "syrinx.wobble": [0, 0],
+    "syrinx.wobblefm": [0, 0],
+    "syrinx.pressure": [0.55, 0.85],
+    "syrinx.minibreath": [0.6, 0.6],
+    "syrinx.pattern": [1, 1],
+    "syrinx.sylrate": [12, 30],
+    "syrinx.duty": [0.3, 0.6],
+    "syrinx.shape": [0, 2],
+    "syrinx.sweep": [-0.4, 0.4],
+    "syrinx.sides": [0, 0],
+    "syrinx.trill": [0.7, 0.7],
+    "syrinx.jitter": [0, 0.1],
+    "syrinx.size": [0.3, 0.45],
+    "syrinx.tempolock": [0.5, 0.5],
+    "syrinx.filter": [1, 1],
+    "syrinx.lock": [0, 0],
+    "syrinx.glidestyle": [0, 0]
+  },
+  "morph": 0.3,
+  "call": {
+    "units": [2, 6],
+    "unitLength": [0.1, 0.5],
+    "gap": [0.03, 0.2],
+    "legato": false,
+    "evolve": "wander",
+    "evolveAmount": 0.4,
+    "rest": [3, 20],
+    "attack": [0.002, 0.01],
+    "release": [0.02, 0.08]
+  },
+  "signature": {
+    "amount": 0.3,
+    "variation": 0.4
+  },
+  "manner": {
+    "talkative": 0.5,
+    "responsive": 0.8,
+    "mimicry": 0.4,
+    "pan": 0.65,
+    "wander": 0.5,
+    "level": 5
+  },
+  "filter": {
+    "on": false,
+    "cutoff": 8000
+  }
+}

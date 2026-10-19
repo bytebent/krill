@@ -123,6 +123,8 @@
     c.pitch.low = src.pitch[0];
     c.pitch.high = src.pitch[1];
     for (const part of [src, bod]) for (const id in part.defaults) c.ranges[part.ns + '.' + id] = part.defaults[id].slice();
+    const pair = bod.sourceDefaults && bod.sourceDefaults[source];      // e.g. Syrinx's Filter off in front of Beak
+    if (pair) for (const id in pair) c.ranges[src.ns + '.' + id] = pair[id].slice();
     return c;
   }
 

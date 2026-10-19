@@ -137,7 +137,8 @@
   }
 
   // A changed copy. amount 0 returns the same motif (nothing is copied).
-  function mutate(m, amount, rng, maxUnits) {
+  // minUnits, maxUnits: the copier's unit range; a copy never drops or adds past it.
+  function mutate(m, amount, rng, maxUnits, minUnits) {
     if (!(amount > 0)) return m;
     const j = amount * 0.25;
     const units = m.units.map(u => {
@@ -156,7 +157,8 @@
       const k = rng.int(0, units.length - 1), u = units[k];
       units.splice(k + 1, 0, { len: u.len, gap: u.gap, contour: u.contour, step: u.step, p0: u.p0, p1: u.p1 });
     }
-    if (units.length > 1 && rng.chance(amount * 0.25)) units.splice(rng.int(0, units.length - 1), 1);
+    // (the draw stays as it was, so calls that never broke this sound the same)
+    if (units.length > 1 && rng.chance(amount * 0.25) && units.length > (minUnits || 1)) units.splice(rng.int(0, units.length - 1), 1);
     return {
       keys: m.keys, units, key: m.key,
       atk: clamp01(m.atk + rng.gauss() * j), rel: clamp01(m.rel + rng.gauss() * j),
@@ -266,14 +268,14 @@
     // a call of its own: its signature (varied) or a fresh one
     call(t, ctx) {
       const cc = this.cc, rng = this.rng;
-      if (rng.chance(cc.sigAmount)) return realise(cc, mutate(cc.signature, cc.sigVariation, rng, cc.units[1]), t, ctx, rng, 'signature');
+      if (rng.chance(cc.sigAmount)) return realise(cc, mutate(cc.signature, cc.sigVariation, rng, cc.units[1], cc.units[0]), t, ctx, rng, 'signature');
       return realise(cc, generateMotif(cc, rng), t, ctx, rng, 'fresh');
     }
     // an answer to a heard motif: a changed copy with Mimicry's odds, otherwise a call of its own
     answer(t, heard, ctx) {
       const cc = this.cc, rng = this.rng;
       if (heard && rng.chance(ctx && ctx.copyMore ? cc.mimicry + (1 - cc.mimicry) * ctx.copyMore : cc.mimicry)) {   // pond chaos copies more
-        return realise(cc, mutate(heard, Math.max(0.15, cc.sigVariation), rng, cc.units[1]), t, ctx, rng, 'copy');
+        return realise(cc, mutate(heard, Math.max(0.15, cc.sigVariation), rng, cc.units[1], cc.units[0]), t, ctx, rng, 'copy');
       }
       return this.call(t, ctx);
     }

@@ -31,7 +31,7 @@ test('every value stays inside the creature\'s ranges', () => {
   for (const c of EXAMPLES) for (const pitch of [DMIN, FREE]) {
     const sc = R.soloScore(c, { seed: 5, seconds: 1800, pitch });
     const cc = R.compile(c, pitch);
-    const snapped = new Set(['dolphin.rate', 'dolphin.freerate', 'dolphin.wtranspose', 'dolphin.sweep']);
+    const snapped = new Set(['dolphin.rate', 'dolphin.freerate', 'dolphin.wtranspose', 'dolphin.sweep', 'syrinx.sweep', 'syrinx.interval', 'syrinx.membrane']);
     const [u0, u1] = c.call.units, [l0, l1] = c.call.unitLength;
     let prevEnd = null;
     for (const call of sc.calls) {
@@ -93,6 +93,30 @@ test('in key: dolphin pulse pitch and whistle transpose land on the scale', () =
     assert.ok(DMIN.inScale(Math.round((u.note + wt + 12 * sw) * 1e3) / 1e3), 'sweep end ' + sw);
   });
   assert.ok(pitched > 50);
+});
+
+test('in key: Syrinx locks, and its sweeps, Interval side and membrane land on the scale', () => {
+  const c = C.defaults('syrinx', 'none', { seed: 3 });
+  c.ranges['syrinx.pattern'] = [1, 1];
+  c.ranges['syrinx.sweep'] = [-1.3, 1.3];
+  c.ranges['syrinx.playmode'] = [0, 1];
+  c.ranges['syrinx.interval'] = [-5.5, 9.2];
+  c.ranges['syrinx.topology'] = [0, 2];
+  c.ranges['syrinx.membrane'] = [-30, -10];
+  const cc = R.compile(c, DMIN);
+  assert.ok(cc.locked.some(l => l.key === 'syrinx.lock' && l.value === 1), 'Lock on in key mode');
+  assert.ok(!R.compile(c, FREE).locked.some(l => l.key === 'syrinx.lock' && l.value === 1), 'free mode leaves Lock alone');
+  for (const k of ['syrinx.sweep', 'syrinx.interval', 'syrinx.membrane']) assert.ok(cc.vKey.includes(k), k + ' varies');
+  let n = 0;
+  eachUnit(R.soloScore(c, { seed: 4, seconds: 900, pitch: DMIN }), (u) => {
+    n++;
+    const at = k => u.v0[cc.vKey.indexOf(k)];
+    const r3 = x => Math.round(x * 1e3) / 1e3;
+    assert.ok(DMIN.inScale(r3(u.note + 12 * at('syrinx.sweep'))), 'sweep end ' + u.note + ' ' + at('syrinx.sweep'));
+    assert.ok(DMIN.inScale(r3(u.note + at('syrinx.interval'))), 'interval ' + at('syrinx.interval'));
+    assert.ok(DMIN.inScale(r3(u.note + at('syrinx.membrane'))), 'membrane ' + at('syrinx.membrane'));
+  });
+  assert.ok(n > 30, n + ' units');
 });
 
 test('locked parameters are never rolled; snapping only adds what it can change', () => {

@@ -13,6 +13,11 @@ const ROOT = path.join(__dirname, '..');
 const shotsArg = process.argv.indexOf('--shots');
 const SHOTS = shotsArg > 0 ? process.argv[shotsArg + 1] : null;
 const url = 'file://' + path.join(ROOT, 'pages', 'creature.html');
+// The pond page's mechanics are checked on the first pond, as before; the example the pages carry
+// (the bird pond on the krill-birds-v1 branch) is checked on its own.
+const FIRST = JSON.parse(fs.readFileSync(path.join(ROOT, 'examples', 'ponds', 'first-pond.krill-pond.json'), 'utf8'));
+const EX = JSON.parse(fs.readFileSync(path.join(ROOT, 'examples', 'ponds', require('./build-pages.js').EXAMPLE_POND), 'utf8'));
+const EX_CREATURES = fs.readdirSync(path.join(ROOT, 'examples', 'creatures')).filter(f => f.endsWith('.krill-creature.json')).length;
 const results = [];
 const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); console.log((cond ? '  ok   ' : '  FAIL ') + name + (info ? '  (' + info + ')' : '')); };
 
@@ -44,7 +49,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
 
   // examples: every one loads, Throat + tube shows a tube, bare shows pitch
   const exNames = await page.evaluate(() => (window.KRILL_EXAMPLES || []).map(e => e.name));
-  ok('examples are built in', exNames.length === 5, exNames.join(', '));
+  ok('examples are built in', exNames.length === EX_CREATURES, exNames.join(', '));
   for (const n of exNames) {
     await page.click('#examples');
     await page.click('#exMenu .it:has-text("' + n + '")');
@@ -134,7 +139,8 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   pp.on('pageerror', e => perr.push(String(e)));
   await pp.goto('file://' + path.join(ROOT, 'pages', 'pond.html'));
   await pp.waitForFunction(() => window.krillPond && window.krillPond.score);
-  await pp.evaluate(() => window.krillPond.load(window.KRILL_POND_EXAMPLE));
+  ok('the pond page carries the example pond', await pp.evaluate(n => window.KRILL_POND_EXAMPLE.name === n, EX.name), EX.name);
+  await pp.evaluate(p => window.krillPond.load(p), FIRST);
   const p0 = await pp.evaluate(() => ({ calls: window.krillPond.score.calls.length, slots: document.querySelectorAll('.slot:not(.empty)').length, empty: document.querySelectorAll('.slot.empty').length }));
   ok('pond page loads the example pond and scores it', p0.calls > 50 && p0.slots === 4 && p0.empty === 2, p0.calls + ' calls');
   const lit2 = await pp.evaluate(() => { const c = document.getElementById('sketch'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 150) n++; return n / (d.length / 4); });
@@ -221,7 +227,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   await pm.addInitScript(() => { delete window.showSaveFilePicker; delete Window.prototype.showSaveFilePicker; });
   await pm.goto('file://' + path.join(ROOT, 'pages', 'pond.html'));
   await pm.waitForFunction(() => window.krillPond && window.krillPond.score);
-  await pm.evaluate(() => window.krillPond.load(window.KRILL_POND_EXAMPLE));
+  await pm.evaluate(p => window.krillPond.load(p), FIRST);
   await pm.click('#export');
   await pm.click('#exLenSeg >> text=60');
   ok('without the save dialog, past 30 min it shows the Node command instead', await pm.evaluate(() => document.getElementById('exGo').disabled && /node tools\/render\.js krill_7_60m\.krill-pond\.json/.test(document.getElementById('exNote').textContent)));
@@ -230,7 +236,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   const [mw] = await Promise.all([pm.waitForEvent('download'), pm.click('#exGo')]);
   const mbytes = new Uint8Array(fs.readFileSync(await mw.path())), mwav = W.parse(mbytes);
   ok('in memory it downloads a complete WAV', mwav.frames === 30 * 48000 && mwav.riffSize === mbytes.length - 8 && mwav.meta.pond.seed === 7, mw.suggestedFilename());
-  await pm.evaluate(() => window.krillPond.load(Object.assign({}, window.KRILL_POND_EXAMPLE, { seed: 99 })));
+  await pm.evaluate(p => window.krillPond.load(Object.assign({}, p, { seed: 99 })), FIRST);
   await pm.setInputFiles('#file', await mw.path());
   await pm.waitForFunction(() => /Opened the pond/.test(document.getElementById('status').textContent));
   ok('a krill WAV opens the pond it was made from', await pm.evaluate(() => window.krillPond.pond.seed === 7 && window.krillPond.pond.output.minutes === 0.5 && window.krillPond.pond.slots.filter(Boolean).length === 4));
@@ -254,7 +260,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
   vp.on('pageerror', e => verr.push(String(e)));
   await vp.goto('file://' + path.join(ROOT, 'pages', 'visualizer.html'));
   await vp.waitForFunction(() => window.krillVis && window.krillVis.scene);
-  ok('with nothing stored, it opens the example pond', await vp.evaluate(() => window.krillVis.pond.seed === 7 && window.krillVis.mode === 'live'));
+  ok('with nothing stored, it opens the example pond', await vp.evaluate(seed => window.krillVis.pond.seed === seed && window.krillVis.mode === 'live', EX.seed), EX.name);
   await vp.evaluate(() => localStorage.setItem('krill.pond.v1', JSON.stringify(Object.assign({}, window.KRILL_POND_EXAMPLE, { seed: 4321 }))));
   await vp.reload();
   await vp.waitForFunction(() => window.krillVis && window.krillVis.scene);
@@ -266,7 +272,7 @@ const ok = (name, cond, info) => { results.push({ name, ok: !!cond, info }); con
     const V = window.krillVis, heard = Object.values(V.levels).filter(l => l > -50).length;
     return { scopes: Object.keys(V.scopes).length, heard, t: V.now(), sf: V.scopeFrame / 48000, status: document.getElementById('status').textContent };
   });
-  ok('Play renders the pond live in the worklet and every voice sends its scope', live.scopes === 4 && /live/i.test(live.status) && Math.abs(live.sf - live.t) < 0.5, 'audio ' + live.t.toFixed(1) + ' s, scopes at ' + live.sf.toFixed(1) + ' s');
+  ok('Play renders the pond live in the worklet and every voice sends its scope', live.scopes === EX.slots.filter(Boolean).length && /live/i.test(live.status) && Math.abs(live.sf - live.t) < 0.5, 'audio ' + live.t.toFixed(1) + ' s, scopes at ' + live.sf.toFixed(1) + ' s');
   // over 6 s, scopes light while the score says a creature is calling, and stay dark otherwise
   const agree = await vp.evaluate(async () => {
     const V = window.krillVis; let same = 0, n = 0, lit = 0;
