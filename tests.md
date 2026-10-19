@@ -307,3 +307,19 @@ nine species are clean, Syrinx key mode, Beak's Filter default). `node tools/che
 passed: every example calls on the creature page, the pond page carries Dawn pond and its
 mechanics are checked on the first pond as before, and the visualizer plays Dawn pond live in the
 AudioWorklet with all six scopes. Not tested: Safari, and listening, which is yours.
+
+### Safety limiter per creature
+
+Each creature now ends with its own limiter: source → body → low-pass → **limiter** → pan. It
+has zero latency (so timing and the visualizer's scopes don't move), a ceiling of −3 dBFS on what
+the creature sends to the mix, drops at once for a block that would pass it and recovers over
+0.3 s. Below the ceiling it doesn't touch a sample. A block with NaN or Infinity from an engine is
+silenced and counted. `tools/render.js` prints what the limiters did (`creature limiters: idle`,
+or the most each lane took off). The mix keeps its own lookahead limiter at −1 dBFS.
+
+- Over 20 minutes of each example pond the loudest creature reaches −6.6 dBFS (Cinderchat), so
+  the limiters stay idle on all three ponds, and the first pond's render is still bit-identical
+  to main's. ✓
+- Tests: three species driven at Level +6 never pass the ceiling; at normal levels the limiter
+  takes nothing off; NaN and Infinity blocks come out silent; gain returns to exactly 1. ✓
+- `node tests/run.js` 102 passed; `node tools/check-pages.js` 68 passed.

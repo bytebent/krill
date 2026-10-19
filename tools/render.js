@@ -103,3 +103,5 @@ console.log('  rendered in ' + secs.toFixed(1) + ' s (' + (o.seconds / secs).toF
 console.log('  peak ' + st.peakDb.toFixed(1) + ' dBFS before the limiter, limiter max ' + st.maxReductionDb.toFixed(1) + ' dB · ' + (bytes / 1048576).toFixed(1) + ' MB');
 const worst = Math.max(...st.enginePeakDb);
 console.log('  engine headroom: peak ' + worst.toFixed(1) + ' dB inside the engines' + (worst > -1 ? ' · WARNING: near an engine\'s clamp' : ''));
+const lim = st.voiceLimitDb.map((d, i) => d > 0 ? 'lane ' + (i + 1) + ' −' + d.toFixed(1) + ' dB' : null).filter(Boolean);
+console.log('  creature limiters: ' + (lim.length ? lim.join(', ') : 'idle') + (st.badBlocks ? ' · WARNING: ' + st.badBlocks + ' blocks silenced (NaN or Infinity from an engine)' : ''));

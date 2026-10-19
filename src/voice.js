@@ -13,6 +13,10 @@
  *           off costs nothing.
  *   params  sent only when their value changes: once at a unit's start, then per block only
  *           for units that Morph.
+ *   limiter a safety limiter per creature, after the filter and before the pan: zero latency, a
+ *           ceiling of VOICE_CEIL_DB on what the creature puts into the mix. Gain drops at once
+ *           for a block that would pass it and comes back over VOICE_REL_S; below the ceiling it
+ *           does nothing (gain exactly 1). A block with NaN or Infinity in it is silenced.
  *   silence a voice with nothing sounding and its tail decayed isn't processed at all
  *           (source, body, filter and panning are skipped; block() returns false).
  *
@@ -32,6 +36,8 @@
   const TAIL_PAD = 0.75;          // s after a call's release before the voice may sleep (engine + tube ring-out)
   const LEGATO_GLIDE = 0.08;      // s, glide into the next unit of a legato call
   const BUTTER_Q = [0.5411961, 1.3065630];     // two biquads = 4th-order Butterworth low-pass
+  const VOICE_CEIL_DB = -3;       // per-creature limiter ceiling (dBFS, after the creature's gain, before pan)
+  const VOICE_REL_S = 0.3;        // its recovery: back to gain 1 from -6 dB in this long
 
   // RBJ low-pass biquad coefficients [b0, b1, b2, a1, a2] (a0 normalised)
   function lowpass(f, q, sr) {
@@ -110,6 +116,12 @@
       this.a = new Float32Array(B);
       this.oL = new Float32Array(B);
       this.blocks = 0;           // blocks actually processed (for the bench)
+      // safety limiter: gain (linear) and how far it ever went (dB), plus blocks silenced for NaN
+      this.limCeil = Math.pow(10, VOICE_CEIL_DB / 20);
+      this.limG = 1;
+      this.limRel = Math.pow(2, B / (VOICE_REL_S * sr));    // per block: -6 dB back to 0 in VOICE_REL_S
+      this.limMaxDb = 0;
+      this.badBlocks = 0;
     }
 
     send(target, id, v) {
@@ -235,10 +247,28 @@
         if (Math.abs(this.callGain - this.callGainTarget) < 1e-5) this.callGain = this.callGainTarget;
       }
       pan = PAN.place(pan, this.width);
+      this.limit(src, this.gain * this.callGain);       // safety limiter on what this creature sends to the mix
       const th = (pan + 1) * Math.PI / 4, g = this.gain * this.callGain, gl = Math.cos(th) * g, gr = Math.sin(th) * g;
       if (this.tap) this.tap(b, src, g);               // the visualizer's scope (mono, before pan)
       for (let i = 0; i < B; i++) { const x = src[i]; outL[i] += x * gl; outR[i] += x * gr; }
       return true;
+    }
+
+    // the per-creature safety limiter: src is the block before gain g; scales src in place
+    limit(src, g) {
+      let pk = 0, bad = false;
+      for (let i = 0; i < B; i++) { const x = src[i]; if (x !== x || x === Infinity || x === -Infinity) { bad = true; break; } const a = x < 0 ? -x : x; if (a > pk) pk = a; }
+      if (bad) { src.fill(0); this.badBlocks++; return; }
+      const need = pk * g > this.limCeil ? this.limCeil / (pk * g) : 1;   // gain this block may have at most
+      const g0 = this.limG;
+      let g1 = g0 < 1 ? Math.min(1, g0 * this.limRel) : 1;               // recovering
+      if (need < g1) g1 = need;
+      if (g1 === 1 && g0 === 1) return;                                   // idle: untouched
+      if (g1 < g0) { for (let i = 0; i < B; i++) src[i] *= g1; }          // down at once: nothing passes the ceiling
+      else { const d = (g1 - g0) / B; for (let i = 0; i < B; i++) src[i] *= g0 + d * (i + 1); }   // up, ramped
+      this.limG = g1;
+      const red = -20 * Math.log10(g1);
+      if (red > this.limMaxDb) this.limMaxDb = red;
     }
 
     // Jump to block b without rendering what came before: for the visualizer's silent voices that
@@ -255,7 +285,7 @@
     get done() { return !this.cur && this.ci >= this.calls.length; }
   }
 
-  const api = { Voice, noise: PAN.noise, TAIL_PAD, lowpass };
+  const api = { Voice, noise: PAN.noise, TAIL_PAD, lowpass, VOICE_CEIL_DB };
   if (inNode) module.exports = api;
   else K.voice = api;
 })(typeof self !== 'undefined' ? self : this);

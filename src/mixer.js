@@ -150,6 +150,8 @@
         maxReductionDb: this.lim.maxReduction,
         awake: this.voices.map(v => v.blocks / Math.max(1, this.blocksTotal)),
         enginePeakDb: this.voices.map(v => v.srcPeak > 0 ? db(v.srcPeak) : -Infinity),
+        voiceLimitDb: this.voices.map(v => v.limMaxDb),           // most each creature's safety limiter took off
+        badBlocks: this.voices.reduce((a, v) => a + v.badBlocks, 0),   // blocks silenced for NaN or Infinity
       };
     }
   }
